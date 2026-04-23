@@ -463,7 +463,7 @@ export default function ReportsPage() {
   const [measures, setMeasures] = useState<MeasureItem[]>([]);
   const [provenances, setProvenances] = useState<Map<number, CalcProvenance>>(new Map());
 
-  useEffect(() => { api.listProjects().then(setProjects).catch(() => {}); }, []);
+  useEffect(() => { api.listProjects().then((res) => setProjects(res.items)).catch(() => {}); }, []);
 
   useEffect(() => {
     if (!projectId) return;

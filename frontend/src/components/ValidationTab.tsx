@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Card, Col, Row, Statistic, Table, Tag } from "antd";
+import { Button, Col, Row, Statistic, Table, Tag } from "antd";
 import { CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, WarningOutlined } from "@ant-design/icons";
 import type { ValidationIssue, ValidationReport } from "../api";
 import { api } from "../api";
@@ -65,11 +65,15 @@ export default function ValidationTab({ projectId }: Props) {
         </Row>
       )}
       {report && report.total_issues === 0 ? (
-        <Card style={{ textAlign: "center", padding: 48 }}>
+        <div style={{
+          textAlign: "center", padding: "56px 24px",
+          background: "linear-gradient(135deg, rgba(34,197,94,0.04), rgba(34,197,94,0.01))",
+          borderRadius: 16, border: "1px solid rgba(34,197,94,0.15)",
+        }}>
           <CheckCircleOutlined style={{ fontSize: 56, color: "#22c55e" }} />
-          <div style={{ marginTop: 16, fontSize: 17, color: "#22c55e", fontWeight: 600 }}>校验通过，无问题</div>
-          <div style={{ marginTop: 8, color: "var(--text-secondary)", fontSize: 13 }}>所有校验规则均已通过</div>
-        </Card>
+          <div style={{ marginTop: 16, fontSize: 18, color: "#22c55e", fontWeight: 700 }}>校验通过</div>
+          <div style={{ marginTop: 8, color: "var(--text-secondary)", fontSize: 13 }}>所有校验规则均已通过，项目数据完整且合规</div>
+        </div>
       ) : (
         <Table
           rowKey={(r: ValidationIssue) => `${r.code}-${r.boq_item_id ?? "g"}-${r.message.slice(0, 20)}`} columns={columns}

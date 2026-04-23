@@ -35,7 +35,10 @@ def export_valuation_report(project_id: int, db: Session) -> bytes:
     # --- Styles ---
     header_font = Font(bold=True, size=11)
     header_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+    total_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+    alt_fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
     center = Alignment(horizontal="center", vertical="center")
+    num_fmt = '#,##0.00'
 
     # --- Title ---
     ws.merge_cells("A1:L1")
@@ -49,7 +52,7 @@ def export_valuation_report(project_id: int, db: Session) -> bytes:
 
     # --- Header row ---
     headers = [
-        "序号", "编码", "名称", "单位", "工程量",
+        "序号", "编码", "名称", "分部", "单位", "工程量", "综合单价",
         "人工费", "材料费", "机械费", "直接费",
         "管理费", "利润", "规费", "税前合计", "税金", "合计",
     ]
@@ -59,37 +62,56 @@ def export_valuation_report(project_id: int, db: Session) -> bytes:
         cell.fill = header_fill
         cell.alignment = center
 
+    # Sort by division for grouped output
+    sorted_results = sorted(line_results, key=lambda x: (x[0].division or "未分类", x[0].sort_order))
+
     # --- Data rows ---
-    for row_idx, (boq, result) in enumerate(line_results, 5):
+    money_cols = list(range(7, 18))  # cols 7-17 are money
+    for row_idx, (boq, result) in enumerate(sorted_results, 5):
+        unit_price = round(result.total / boq.quantity, 2) if boq.quantity else 0
         ws.cell(row=row_idx, column=1, value=row_idx - 4)
         ws.cell(row=row_idx, column=2, value=boq.code)
         ws.cell(row=row_idx, column=3, value=boq.name)
-        ws.cell(row=row_idx, column=4, value=boq.unit)
-        ws.cell(row=row_idx, column=5, value=boq.quantity)
-        ws.cell(row=row_idx, column=6, value=result.labor_cost)
-        ws.cell(row=row_idx, column=7, value=result.material_cost)
-        ws.cell(row=row_idx, column=8, value=result.machine_cost)
-        ws.cell(row=row_idx, column=9, value=result.direct_cost)
-        ws.cell(row=row_idx, column=10, value=result.management_fee)
-        ws.cell(row=row_idx, column=11, value=result.profit)
-        ws.cell(row=row_idx, column=12, value=result.regulatory_fee)
-        ws.cell(row=row_idx, column=13, value=result.pre_tax_total)
-        ws.cell(row=row_idx, column=14, value=result.tax)
-        ws.cell(row=row_idx, column=15, value=result.total)
+        ws.cell(row=row_idx, column=4, value=boq.division or "未分类")
+        ws.cell(row=row_idx, column=5, value=boq.unit)
+        ws.cell(row=row_idx, column=6, value=boq.quantity)
+        ws.cell(row=row_idx, column=7, value=unit_price)
+        ws.cell(row=row_idx, column=8, value=result.labor_cost)
+        ws.cell(row=row_idx, column=9, value=result.material_cost)
+        ws.cell(row=row_idx, column=10, value=result.machine_cost)
+        ws.cell(row=row_idx, column=11, value=result.direct_cost)
+        ws.cell(row=row_idx, column=12, value=result.management_fee)
+        ws.cell(row=row_idx, column=13, value=result.profit)
+        ws.cell(row=row_idx, column=14, value=result.regulatory_fee)
+        ws.cell(row=row_idx, column=15, value=result.pre_tax_total)
+        ws.cell(row=row_idx, column=16, value=result.tax)
+        ws.cell(row=row_idx, column=17, value=result.total)
+        # Number format + alternating row color
+        for c in money_cols:
+            ws.cell(row=row_idx, column=c).number_format = num_fmt
+        ws.cell(row=row_idx, column=6).number_format = num_fmt
+        if (row_idx - 5) % 2 == 1:
+            for c in range(1, 18):
+                ws.cell(row=row_idx, column=c).fill = alt_fill
 
     # --- Summary row ---
-    sum_row = len(line_results) + 5
+    sum_row = len(sorted_results) + 5
     ws.cell(row=sum_row, column=1, value="合计").font = header_font
-    ws.cell(row=sum_row, column=9, value=summary.total_direct).font = header_font
-    ws.cell(row=sum_row, column=10, value=summary.total_management).font = header_font
-    ws.cell(row=sum_row, column=11, value=summary.total_profit).font = header_font
-    ws.cell(row=sum_row, column=12, value=summary.total_regulatory).font = header_font
-    ws.cell(row=sum_row, column=13, value=summary.total_pre_tax).font = header_font
-    ws.cell(row=sum_row, column=14, value=summary.total_tax).font = header_font
-    ws.cell(row=sum_row, column=15, value=summary.grand_total).font = header_font
+    summary_values = [
+        (11, summary.total_direct), (12, summary.total_management),
+        (13, summary.total_profit), (14, summary.total_regulatory),
+        (15, summary.total_pre_tax), (16, summary.total_tax),
+        (17, summary.grand_total),
+    ]
+    for col, val in summary_values:
+        cell = ws.cell(row=sum_row, column=col, value=val)
+        cell.font = header_font
+        cell.number_format = num_fmt
+    for c in range(1, 18):
+        ws.cell(row=sum_row, column=c).fill = total_fill
 
     # --- Column widths ---
-    col_widths = [6, 12, 20, 6, 10, 12, 12, 12, 12, 12, 12, 12, 12, 12, 14]
+    col_widths = [6, 12, 20, 10, 6, 10, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 14]
     for i, w in enumerate(col_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
@@ -102,26 +124,43 @@ def export_valuation_report(project_id: int, db: Session) -> bytes:
 
     if div_totals:
         ws2 = wb.create_sheet(title="分部汇总")
-        ws2.merge_cells("A1:C1")
+        ws2.merge_cells("A1:D1")
         ws2["A1"] = f"分部汇总表 — {project.name}"
         ws2["A1"].font = Font(bold=True, size=14)
         ws2["A1"].alignment = center
 
-        for col_idx, h in enumerate(["分部", "合计金额", "占比"], 1):
+        div_headers = ["分部", "清单项数", "合计金额", "占比"]
+        for col_idx, h in enumerate(div_headers, 1):
             cell = ws2.cell(row=3, column=col_idx, value=h)
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = center
 
+        from collections import Counter
+        div_counts = Counter(boq.division or "未分类" for boq, _ in line_results)
         grand = summary.grand_total or 1
-        for row_idx, (div, total) in enumerate(sorted(div_totals.items()), 4):
+        for row_idx, (div, total) in enumerate(sorted(div_totals.items(), key=lambda x: -x[1]), 4):
             ws2.cell(row=row_idx, column=1, value=div)
-            ws2.cell(row=row_idx, column=2, value=round(total, 2))
-            ws2.cell(row=row_idx, column=3, value=f"{round(total / grand * 100, 1)}%")
+            ws2.cell(row=row_idx, column=2, value=div_counts.get(div, 0))
+            c = ws2.cell(row=row_idx, column=3, value=round(total, 2))
+            c.number_format = num_fmt
+            ws2.cell(row=row_idx, column=4, value=f"{round(total / grand * 100, 1)}%")
 
-        ws2.column_dimensions["A"].width = 15
-        ws2.column_dimensions["B"].width = 15
-        ws2.column_dimensions["C"].width = 10
+        # Total row
+        t_row = len(div_totals) + 4
+        ws2.cell(row=t_row, column=1, value="合计").font = header_font
+        ws2.cell(row=t_row, column=2, value=sum(div_counts.values())).font = header_font
+        c = ws2.cell(row=t_row, column=3, value=round(sum(div_totals.values()), 2))
+        c.font = header_font
+        c.number_format = num_fmt
+        ws2.cell(row=t_row, column=4, value="100.0%").font = header_font
+        for col in range(1, 5):
+            ws2.cell(row=t_row, column=col).fill = total_fill
+
+        ws2.column_dimensions["A"].width = 18
+        ws2.column_dimensions["B"].width = 10
+        ws2.column_dimensions["C"].width = 15
+        ws2.column_dimensions["D"].width = 10
 
     buf = io.BytesIO()
     wb.save(buf)

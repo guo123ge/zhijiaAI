@@ -16,7 +16,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.ai.agents.valuation_agent import AgentResult, AgentStep, run_valuation_agent
+from app.ai.framework.types import AgentResult, AgentStep
+from app.ai.agents.v2.valuation_agent_v2 import run_valuation_agent_v2 as run_valuation_agent
 
 logger = logging.getLogger(__name__)
 
@@ -92,14 +93,14 @@ def agent_valuate_stream(
                     final = {
                         "type": "done",
                         "answer": r.answer,
-                        "bindings_changed": r.bindings_changed,
+                        "bindings_changed": r.extra.get("bindings_changed", False),
                         "error": r.error,
                     }
                     yield f"data: {json.dumps(final, ensure_ascii=False)}\n\n"
                 break
 
             data = {
-                "type": step.type,
+                "type": step.type.value if hasattr(step.type, 'value') else step.type,
                 "content": step.content,
                 "tool_name": step.tool_name,
                 "tool_args": step.tool_args,
@@ -140,7 +141,7 @@ def agent_valuate(
         answer=result.answer,
         steps=[
             AgentStepOut(
-                type=s.type,
+                type=s.type.value if hasattr(s.type, 'value') else s.type,
                 content=s.content,
                 tool_name=s.tool_name,
                 tool_args=s.tool_args,
@@ -148,6 +149,6 @@ def agent_valuate(
             )
             for s in result.steps
         ],
-        bindings_changed=result.bindings_changed,
+        bindings_changed=result.extra.get("bindings_changed", False),
         error=result.error,
     )

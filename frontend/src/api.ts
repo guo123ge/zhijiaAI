@@ -18,8 +18,36 @@ async function upload<T>(path: string, formData: FormData): Promise<T> {
 // ─── Types ───────────────────────────────────────────────────────
 
 export interface Project {
-  id: number; name: string; region: string;
+  id: number; name: string; description: string | null; region: string;
+  project_type: string; status: string; budget: number | null;
+  start_date: string | null; end_date: string | null; owner: string | null;
   standard_type: string; language: string; currency: string;
+  created_at: string | null; updated_at: string | null;
+}
+
+export interface ProjectListResponse {
+  items: Project[]; total: number; page: number;
+  page_size: number; total_pages: number;
+}
+
+export interface ProjectListParams {
+  q?: string; status?: string; project_type?: string;
+  region?: string; sort_by?: string; sort_order?: string;
+  page?: number; page_size?: number;
+}
+
+export interface ProjectCreateData {
+  name: string; region: string; description?: string;
+  project_type?: string; budget?: number; start_date?: string;
+  end_date?: string; owner?: string; standard_type?: string;
+  language?: string; currency?: string;
+}
+
+export interface ProjectUpdateData {
+  name?: string; description?: string; region?: string;
+  project_type?: string; budget?: number; start_date?: string;
+  end_date?: string; owner?: string; standard_type?: string;
+  language?: string; currency?: string;
 }
 
 export interface BoqItem {
@@ -179,6 +207,27 @@ export interface QueryHit {
 }
 export interface QueryResponse { query: string; total_hits: number; hits: QueryHit[] }
 
+export interface DivisionStat {
+  division: string;
+  count: number;
+  cost: number;
+}
+
+export interface HealthScoreDimension {
+  name: string;
+  score: number;
+  weight: number;
+  detail: string;
+}
+
+export interface HealthScore {
+  project_id: number;
+  overall_score: number;
+  grade: string;
+  dimensions: HealthScoreDimension[];
+  suggestions: string[];
+}
+
 export interface DashboardSummary {
   project_id: number;
   boq_count: number;
@@ -189,6 +238,10 @@ export interface DashboardSummary {
   validation_warnings: number;
   recent_audit_count: number;
   recent_comment_count: number;
+  calc_total: number;
+  binding_rate: string;
+  budget: number | null;
+  top_divisions: DivisionStat[];
 }
 
 export interface ValuationStandardConfig {
@@ -379,6 +432,8 @@ export interface AgentStep {
   answer?: string;
   bindings_changed?: boolean;
   error?: string | null;
+  /** Phase H7: set on the orchestrate stream 'done' event. */
+  auto_saved_memories?: string[];
 }
 
 export interface AgentValuateResponse {
@@ -388,14 +443,293 @@ export interface AgentValuateResponse {
   error: string | null;
 }
 
+// ─── Orchestrator & Pipeline Types ────────────────────────────────
+
+export interface OrchestrateResponse {
+  answer: string;
+  tool_calls_made: number;
+  error: string | null;
+  /** Phase H7: keys of memories auto-saved during this run. */
+  auto_saved_memories?: string[];
+}
+
+export interface ConversationTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface OrchestrateRequestExtras {
+  /** Phase H8: associate with a user for user-scoped memory. */
+  user_id?: number;
+  /** Phase H7: override AI_AUTO_SAVE_MEMORY env default for this call. */
+  auto_save_memory?: boolean;
+  /** Prior conversation turns, for multi-turn chat. */
+  conversation_history?: ConversationTurn[];
+}
+
+// ─── Memory Types (Phase H3–H5, H9) ───────────────────────────────
+
+export type MemoryScope = "global" | "user" | "project";
+
+export interface AgentMemoryDTO {
+  id: number | null;
+  scope: MemoryScope;
+  scope_id: number | null;
+  key: string;
+  content: string;
+  tags: string[];
+  importance: number;
+  created_by_agent: string;
+  created_at: string;
+  updated_at: string;
+  accessed_count: number;
+}
+
+export interface AgentMemoryWithScore extends AgentMemoryDTO {
+  score: number;
+}
+
+export interface ListMemoriesResponse {
+  memories: AgentMemoryDTO[];
+  total: number;
+}
+
+export interface SearchMemoriesResponse {
+  matches: AgentMemoryDTO[];
+  total: number;
+}
+
+export interface SemanticMemoriesResponse {
+  matches: AgentMemoryWithScore[];
+  total: number;
+}
+
+export interface UpsertMemoryRequest {
+  scope: MemoryScope;
+  scope_id?: number | null;
+  key: string;
+  content: string;
+  importance?: number;
+  tags?: string[];
+  created_by_agent?: string;
+}
+
+// ─── Skill Types (Phase H4–H5, H9) ────────────────────────────────
+
+export interface SkillSummary {
+  name: string;
+  title: string;
+  description: string;
+  triggers: string[];
+  tags: string[];
+  version: string;
+}
+
+export interface SkillDetail extends SkillSummary {
+  body: string;
+}
+
+export interface SkillMatch extends SkillSummary {
+  score: number;
+}
+
+export interface ListSkillsResponse {
+  skills: SkillSummary[];
+  total: number;
+}
+
+export interface SearchSkillsResponse {
+  matches: SkillSummary[];
+  total: number;
+}
+
+export interface SemanticSkillsResponse {
+  matches: SkillMatch[];
+  total: number;
+}
+
+export interface QuotaItemDTO {
+  id: number;
+  quota_code: string;
+  name: string;
+  unit: string;
+  chapter: string;
+  labor_qty: number;
+  material_qty: number;
+  machine_qty: number;
+}
+
+export interface QuotaListResponse {
+  total: number;
+  items: QuotaItemDTO[];
+}
+
+export interface QuotaChapterStat {
+  chapter: string;
+  count: number;
+}
+
+export interface QuotaStatsResponse {
+  total: number;
+  chapters: QuotaChapterStat[];
+}
+
+export interface PipelineStageOut {
+  index: number;
+  agent: string;
+  success: boolean;
+  duration_s: number;
+  tool_calls: number;
+  answer: string;
+}
+
+export interface PipelineResponse {
+  pipeline: string;
+  stages: PipelineStageOut[];
+  final_answer: string;
+  success: boolean;
+  total_duration_s: number;
+  error: string | null;
+}
+
+// ─── Traces & Cost Dashboard Types ───────────────────────────────
+
+export interface TraceOut {
+  id: number;
+  project_id: number | null;
+  agent_name: string;
+  parent_trace_id: number | null;
+  model: string | null;
+  provider: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  estimated_cost_cents: number;
+  turns_used: number;
+  tool_calls_made: number;
+  duration_ms: number;
+  success: boolean;
+  error: string | null;
+  answer_preview: string | null;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface TraceListResponse {
+  total: number;
+  traces: TraceOut[];
+}
+
+export interface AgentCostStats {
+  agent_name: string;
+  trace_count: number;
+  total_tokens: number;
+  total_cost_cents: number;
+  avg_duration_ms: number;
+  success_rate: number;
+}
+
+export interface DayCostStats {
+  date: string;
+  trace_count: number;
+  total_tokens: number;
+  total_cost_cents: number;
+}
+
+export interface CostStatsResponse {
+  period: string;
+  total_traces: number;
+  successful_traces: number;
+  failed_traces: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_tokens: number;
+  total_cost_cents: number;
+  total_tool_calls: number;
+  avg_duration_ms: number;
+  by_agent: AgentCostStats[];
+  by_day: DayCostStats[];
+}
+
+// ─── Knowledge Graph Types ────────────────────────────────────────
+
+export interface TagOut {
+  id: number; name: string; color: string; category: string; created_at: string;
+}
+export interface TagCreate { name: string; color?: string; category?: string }
+
+export interface EntityTagOut {
+  id: number; tag_id: number; tag_name: string; tag_color: string;
+  entity_type: string; entity_id: number;
+}
+export interface EntityTagCreate { tag_id: number; entity_type: string; entity_id: number }
+
+export interface KnowledgeLinkOut {
+  id: number; source_type: string; source_id: number;
+  target_type: string; target_id: number;
+  link_type: string; label: string; note: string; created_at: string;
+}
+export interface KnowledgeLinkCreate {
+  source_type: string; source_id: number;
+  target_type: string; target_id: number;
+  link_type?: string; label?: string; note?: string;
+}
+export interface KnowledgeLinkUpdate {
+  link_type?: string; label?: string; note?: string;
+}
+
+export interface KnowledgeNoteOut {
+  id: number; entity_type: string; entity_id: number;
+  title: string; content: string; created_at: string; updated_at: string;
+}
+export interface KnowledgeNoteCreate {
+  entity_type: string; entity_id: number; title?: string; content?: string;
+}
+export interface KnowledgeNoteUpdate { title?: string; content?: string }
+
+export interface GraphNode {
+  id: string; type: string; label: string;
+  properties: Record<string, unknown>; tags: string[];
+}
+export interface GraphEdge {
+  source: string; target: string; type: string; label: string;
+}
+export interface GraphDataOut { nodes: GraphNode[]; edges: GraphEdge[] }
+
 // ─── API ─────────────────────────────────────────────────────────
 
 export const api = {
   // Projects
-  listProjects: () => request<Project[]>("/projects"),
+  listProjects: (params?: ProjectListParams) => {
+    const qs = new URLSearchParams();
+    if (params?.q) qs.set("q", params.q);
+    if (params?.status) qs.set("status", params.status);
+    if (params?.project_type) qs.set("project_type", params.project_type);
+    if (params?.region) qs.set("region", params.region);
+    if (params?.sort_by) qs.set("sort_by", params.sort_by);
+    if (params?.sort_order) qs.set("sort_order", params.sort_order);
+    if (params?.page != null) qs.set("page", String(params.page));
+    if (params?.page_size != null) qs.set("page_size", String(params.page_size));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request<ProjectListResponse>(`/projects${suffix}`);
+  },
   getProject: (pid: number) => request<Project>(`/projects/${pid}`),
-  createProject: (data: { name: string; region: string; standard_type?: string; language?: string; currency?: string }) =>
+  createProject: (data: ProjectCreateData) =>
     request<Project>("/projects", { method: "POST", body: JSON.stringify(data) }),
+  updateProject: (pid: number, data: ProjectUpdateData) =>
+    request<Project>(`/projects/${pid}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteProject: (pid: number) =>
+    request<{ ok: boolean; deleted_id: number }>(`/projects/${pid}`, { method: "DELETE" }),
+  archiveProject: (pid: number) =>
+    request<Project>(`/projects/${pid}:archive`, { method: "POST" }),
+  duplicateProject: (pid: number) =>
+    request<Project>(`/projects/${pid}:duplicate`, { method: "POST" }),
+  changeProjectStatus: (pid: number, status: string) =>
+    request<Project>(`/projects/${pid}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  batchDeleteProjects: (ids: number[]) =>
+    request<{ ok: boolean; deleted: number }>("/projects:batch-delete", { method: "POST", body: JSON.stringify(ids) }),
+  batchArchiveProjects: (ids: number[]) =>
+    request<{ ok: boolean; archived: number }>("/projects:batch-archive", { method: "POST", body: JSON.stringify(ids) }),
 
   // BOQ CRUD
   listBoqItems: (pid: number) => request<BoqItem[]>(`/projects/${pid}/boq-items`),
@@ -524,6 +858,10 @@ export const api = {
   listAuditLogs: (pid: number) => request<AuditLog[]>(`/projects/${pid}/audit-logs`),
   getDashboardSummary: (pid: number) =>
     request<DashboardSummary>(`/projects/${pid}/dashboard-summary`),
+  getHealthScore: (pid: number) =>
+    request<HealthScore>(`/projects/${pid}/health-score`),
+  recalculateDirty: (pid: number) =>
+    request<any>(`/projects/${pid}/calculate:dirty`, { method: "POST" }),
 
   // Valuation management (GB/T50500-2024 workflow)
   getValuationOverview: (pid: number) =>
@@ -669,4 +1007,267 @@ export const api = {
   // AI Rate Suggestion (HKSMM4)
   suggestRate: (boqItemId: number) =>
     request<RateSuggestionResponse>(`/boq-items/${boqItemId}/suggest-rate`, { method: "POST" }),
+
+  // ─── Knowledge Graph APIs ──────────────────────────────────────────
+
+  // Tags
+  listTags: (category?: string) =>
+    request<TagOut[]>(`/tags${category ? `?category=${category}` : ""}`),
+  createTag: (data: TagCreate) =>
+    request<TagOut>("/tags", { method: "POST", body: JSON.stringify(data) }),
+  deleteTag: (tagId: number) =>
+    request<void>(`/tags/${tagId}`, { method: "DELETE" }),
+
+  // Entity Tags
+  listEntityTags: (params?: { entity_type?: string; entity_id?: number; tag_id?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.entity_type) qs.set("entity_type", params.entity_type);
+    if (params?.entity_id != null) qs.set("entity_id", String(params.entity_id));
+    if (params?.tag_id != null) qs.set("tag_id", String(params.tag_id));
+    const q = qs.toString();
+    return request<EntityTagOut[]>(`/entity-tags${q ? `?${q}` : ""}`);
+  },
+  attachTag: (data: EntityTagCreate) =>
+    request<EntityTagOut>("/entity-tags", { method: "POST", body: JSON.stringify(data) }),
+  detachTag: (entityTagId: number) =>
+    request<void>(`/entity-tags/${entityTagId}`, { method: "DELETE" }),
+
+  // Knowledge Links
+  listKnowledgeLinks: (params?: { entity_type?: string; entity_id?: number; link_type?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.entity_type) qs.set("entity_type", params.entity_type);
+    if (params?.entity_id != null) qs.set("entity_id", String(params.entity_id));
+    if (params?.link_type) qs.set("link_type", params.link_type);
+    const q = qs.toString();
+    return request<KnowledgeLinkOut[]>(`/knowledge-links${q ? `?${q}` : ""}`);
+  },
+  createKnowledgeLink: (data: KnowledgeLinkCreate) =>
+    request<KnowledgeLinkOut>("/knowledge-links", { method: "POST", body: JSON.stringify(data) }),
+  updateKnowledgeLink: (linkId: number, data: KnowledgeLinkUpdate) =>
+    request<KnowledgeLinkOut>(`/knowledge-links/${linkId}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteKnowledgeLink: (linkId: number) =>
+    request<void>(`/knowledge-links/${linkId}`, { method: "DELETE" }),
+
+  // Knowledge Notes
+  listKnowledgeNotes: (params?: { entity_type?: string; entity_id?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.entity_type) qs.set("entity_type", params.entity_type);
+    if (params?.entity_id != null) qs.set("entity_id", String(params.entity_id));
+    const q = qs.toString();
+    return request<KnowledgeNoteOut[]>(`/knowledge-notes${q ? `?${q}` : ""}`);
+  },
+  createKnowledgeNote: (data: KnowledgeNoteCreate) =>
+    request<KnowledgeNoteOut>("/knowledge-notes", { method: "POST", body: JSON.stringify(data) }),
+  updateKnowledgeNote: (noteId: number, data: KnowledgeNoteUpdate) =>
+    request<KnowledgeNoteOut>(`/knowledge-notes/${noteId}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteKnowledgeNote: (noteId: number) =>
+    request<void>(`/knowledge-notes/${noteId}`, { method: "DELETE" }),
+
+  // Graph Data
+  getGraphData: (params?: {
+    scope?: string; project_id?: number; entity_type?: string;
+    entity_id?: number; depth?: number; types?: string; tag_filter?: string;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params?.scope) qs.set("scope", params.scope);
+    if (params?.project_id != null) qs.set("project_id", String(params.project_id));
+    if (params?.entity_type) qs.set("entity_type", params.entity_type);
+    if (params?.entity_id != null) qs.set("entity_id", String(params.entity_id));
+    if (params?.depth != null) qs.set("depth", String(params.depth));
+    if (params?.types) qs.set("types", params.types);
+    if (params?.tag_filter) qs.set("tag_filter", params.tag_filter);
+    const q = qs.toString();
+    return request<GraphDataOut>(`/graph/data${q ? `?${q}` : ""}`);
+  },
+
+  // ─── Orchestrator & Pipeline APIs ──────────────────────────────────
+
+  orchestrate: (pid: number, instruction: string, extras?: OrchestrateRequestExtras) =>
+    request<OrchestrateResponse>(`/projects/${pid}/orchestrate`, {
+      method: "POST",
+      body: JSON.stringify({ instruction, ...(extras ?? {}) }),
+    }),
+
+  orchestrateStream: (
+    pid: number,
+    instruction: string,
+    onStep: (step: AgentStep) => void,
+    extras?: OrchestrateRequestExtras,
+  ): Promise<void> => {
+    const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+    return fetch(`${BASE}/projects/${pid}/orchestrate/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instruction, ...(extras ?? {}) }),
+    }).then(async (res) => {
+      if (!res.ok) throw new Error(`Orchestrator request failed: ${res.status}`);
+      const reader = res.body?.getReader();
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const step = JSON.parse(line.slice(6)) as AgentStep;
+              onStep(step);
+            } catch { /* skip malformed */ }
+          }
+        }
+      }
+    });
+  },
+
+  runPricingPipeline: (pid: number, boqItemId: number) =>
+    request<PipelineResponse>(`/projects/${pid}/boq-items/${boqItemId}/pipeline/pricing`, {
+      method: "POST",
+    }),
+
+  runAuditPipeline: (pid: number) =>
+    request<PipelineResponse>(`/projects/${pid}/pipeline/audit`, {
+      method: "POST",
+    }),
+
+  // ─── Traces & Cost Dashboard APIs ──────────────────────────────────
+
+  listTraces: (params?: { project_id?: number; agent_name?: string; limit?: number; offset?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.project_id != null) qs.set("project_id", String(params.project_id));
+    if (params?.agent_name) qs.set("agent_name", params.agent_name);
+    if (params?.limit != null) qs.set("limit", String(params.limit));
+    if (params?.offset != null) qs.set("offset", String(params.offset));
+    const q = qs.toString();
+    return request<TraceListResponse>(`/ai/traces${q ? `?${q}` : ""}`);
+  },
+
+  getTraceStats: (params?: { project_id?: number; days?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.project_id != null) qs.set("project_id", String(params.project_id));
+    if (params?.days != null) qs.set("days", String(params.days));
+    const q = qs.toString();
+    return request<CostStatsResponse>(`/ai/traces/stats${q ? `?${q}` : ""}`);
+  },
+
+  // ─── Memory Management APIs (Phase H9) ─────────────────────────────
+
+  listMemories: (params: { scope: MemoryScope; scope_id?: number | null; limit?: number }) => {
+    const qs = new URLSearchParams();
+    qs.set("scope", params.scope);
+    if (params.scope_id != null) qs.set("scope_id", String(params.scope_id));
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    return request<ListMemoriesResponse>(`/memories?${qs.toString()}`);
+  },
+
+  searchMemories: (params: {
+    scope: MemoryScope;
+    scope_id?: number | null;
+    query?: string;
+    tags?: string;
+    min_importance?: number;
+    limit?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    qs.set("scope", params.scope);
+    if (params.scope_id != null) qs.set("scope_id", String(params.scope_id));
+    if (params.query) qs.set("query", params.query);
+    if (params.tags) qs.set("tags", params.tags);
+    if (params.min_importance != null) qs.set("min_importance", String(params.min_importance));
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    return request<SearchMemoriesResponse>(`/memories/search?${qs.toString()}`);
+  },
+
+  searchMemoriesSemantic: (params: {
+    scope: MemoryScope;
+    query: string;
+    scope_id?: number | null;
+    limit?: number;
+    min_similarity?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    qs.set("scope", params.scope);
+    qs.set("query", params.query);
+    if (params.scope_id != null) qs.set("scope_id", String(params.scope_id));
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    if (params.min_similarity != null) qs.set("min_similarity", String(params.min_similarity));
+    return request<SemanticMemoriesResponse>(`/memories/search/semantic?${qs.toString()}`);
+  },
+
+  upsertMemory: (payload: UpsertMemoryRequest) =>
+    request<AgentMemoryDTO>("/memories", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  deleteMemory: (memoryId: number) =>
+    request<{ deleted: boolean; memory_id: number }>(`/memories/${memoryId}`, {
+      method: "DELETE",
+    }),
+
+  // ─── Skills Browsing APIs (Phase H9) ───────────────────────────────
+
+  listSkills: () => request<ListSkillsResponse>("/skills"),
+
+  getSkill: (name: string) =>
+    request<SkillDetail>(`/skills/${encodeURIComponent(name)}`),
+
+  searchSkills: (params: { query?: string; tags?: string }) => {
+    const qs = new URLSearchParams();
+    if (params.query) qs.set("query", params.query);
+    if (params.tags) qs.set("tags", params.tags);
+    const q = qs.toString();
+    return request<SearchSkillsResponse>(`/skills/search${q ? `?${q}` : ""}`);
+  },
+
+  searchSkillsSemantic: (params: {
+    query: string;
+    limit?: number;
+    min_similarity?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    qs.set("query", params.query);
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    if (params.min_similarity != null) qs.set("min_similarity", String(params.min_similarity));
+    return request<SemanticSkillsResponse>(`/skills/search/semantic?${qs.toString()}`);
+  },
+
+  // ─── Quota Library APIs ─────────────────────────────────────────
+
+  listQuotaItems: (params: {
+    skip?: number;
+    limit?: number;
+    chapter?: string;
+    keyword?: string;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params.skip != null) qs.set("skip", String(params.skip));
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    if (params.chapter) qs.set("chapter", params.chapter);
+    if (params.keyword) qs.set("keyword", params.keyword);
+    return request<QuotaListResponse>(`/quota-items?${qs.toString()}`);
+  },
+
+  getQuotaStats: () => request<QuotaStatsResponse>("/quota-items/stats"),
+
+  // ─── Report APIs ──────────────────────────────────────────────
+
+  getReport: (pid: number, opts?: { division?: string; search?: string }) => {
+    const qs = new URLSearchParams();
+    if (opts?.division) qs.set("division", opts.division);
+    if (opts?.search) qs.set("search", opts.search);
+    const q = qs.toString();
+    return request<any>(`/projects/${pid}/report${q ? `?${q}` : ""}`);
+  },
+
+  exportReport: (pid: number, format: "pdf" | "excel" = "pdf") => {
+    const url = `${BASE}/projects/${pid}/report/export?format=${format}`;
+    return fetch(url).then((r) => {
+      if (!r.ok) throw new Error(`Export failed: ${r.status}`);
+      return r.blob();
+    });
+  },
 };

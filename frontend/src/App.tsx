@@ -14,6 +14,9 @@ import UnitPriceAnalysis from "./pages/UnitPriceAnalysis";
 import DrawingRecognition from "./pages/DrawingRecognition";
 import AuditWorkbench from "./pages/AuditWorkbench";
 import ContactUs from "./pages/ContactUs";
+import KnowledgeGraph from "./pages/KnowledgeGraph";
+import AICommandCenter from "./pages/AICommandCenter";
+import QuotaLibrary from "./pages/QuotaLibrary";
 
 const NAV_ITEMS = [
   { path: "/", icon: "home", label: "首页" },
@@ -21,8 +24,11 @@ const NAV_ITEMS = [
   { path: "/projects", icon: "analytics", label: "项目管理" },
   { path: "/drawings", icon: "draw", label: "图纸库" },
   { path: "/pricing", icon: "calculate", label: "计价管理" },
+  { path: "/quota-library", icon: "library_books", label: "定额库" },
   { path: "/reports", icon: "description", label: "报表中心" },
   { path: "/rules", icon: "rule", label: "规则配置" },
+  { path: "/graph", icon: "hub", label: "数据图谱" },
+  { path: "/ai-center", icon: "smart_toy", label: "AI 调度" },
   { path: "/audits", icon: "contract", label: "审计管理" },
   { path: "/contact", icon: "connect_without_contact", label: "联系我们" },
   { path: "/settings", icon: "settings", label: "系统设置" },
@@ -121,6 +127,43 @@ export default function App() {
           colorBorder: "#1e293b",
           colorText: "#e2e8f0",
           colorTextSecondary: "#94a3b8",
+          colorBgLayout: "#0c1017",
+          controlHeight: 36,
+          colorBgTextHover: "rgba(64, 150, 255, 0.06)",
+          colorBgTextActive: "rgba(64, 150, 255, 0.1)",
+        },
+        components: {
+          Card: {
+            colorBgContainer: "#151b28",
+            colorBorderSecondary: "#1e293b",
+          },
+          Input: {
+            colorBgContainer: "#0f1520",
+            activeBorderColor: "#4096ff",
+            hoverBorderColor: "rgba(64, 150, 255, 0.35)",
+          },
+          Select: {
+            colorBgContainer: "#0f1520",
+          },
+          Table: {
+            colorBgContainer: "#151b28",
+            headerBg: "rgba(30, 41, 59, 0.5)",
+            rowHoverBg: "rgba(20, 86, 184, 0.06)",
+          },
+          Modal: {
+            contentBg: "#1c2537",
+            headerBg: "#1c2537",
+          },
+          Drawer: {
+            colorBgElevated: "#1c2537",
+          },
+          Collapse: {
+            colorBgContainer: "#151b28",
+            headerBg: "rgba(30, 41, 59, 0.3)",
+          },
+          Tag: {
+            borderRadiusSM: 4,
+          },
         },
       }}
     >
@@ -140,11 +183,14 @@ export default function App() {
                     <Route path="/projects" element={<ProjectList />} />
                     <Route path="/projects/:id" element={<ProjectDetail />} />
                     <Route path="/pricing" element={<PricingManagement />} />
+                    <Route path="/quota-library" element={<QuotaLibrary />} />
                     <Route path="/pricing/analysis/:projectId/:boqItemId" element={<UnitPriceAnalysis />} />
                     <Route path="/drawings" element={<DrawingRecognition />} />
                     <Route path="/drawings/:projectId" element={<DrawingRecognition />} />
                     <Route path="/reports" element={<ReportsPage />} />
                     <Route path="/rules" element={<RuleConfig />} />
+                    <Route path="/graph" element={<KnowledgeGraph />} />
+                    <Route path="/ai-center" element={<AICommandCenter />} />
                     <Route path="/audits" element={<AuditWorkbench />} />
                     <Route path="/contact" element={<ContactUs />} />
                     <Route path="/settings" element={<div className="page-container"><SystemSettings /></div>} />

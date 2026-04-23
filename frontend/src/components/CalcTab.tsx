@@ -87,11 +87,19 @@ export default function CalcTab({ projectId }: Props) {
       </Space>
 
       {!result && !loading && (
-        <div style={{ textAlign: "center", padding: 64 }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 56, color: "var(--text-muted)", display: "block", marginBottom: 16 }}>calculate</span>
-          <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 8 }}>尚未执行计算</div>
-          <div style={{ color: "var(--text-muted)", fontSize: 13, maxWidth: 360, margin: "0 auto" }}>
-            请先确保清单项已绑定定额，然后点击上方「执行计算」按钮开始计价
+        <div style={{
+          textAlign: "center", padding: "56px 24px",
+          background: "var(--bg-surface)", borderRadius: 16,
+          border: "1px dashed var(--border)",
+        }}>
+          <span className="material-symbols-outlined" style={{
+            fontSize: 56, color: "var(--primary)", display: "block",
+            marginBottom: 16, opacity: 0.5,
+          }}>calculate</span>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>尚未执行计算</div>
+          <div style={{ color: "var(--text-muted)", fontSize: 13, maxWidth: 400, margin: "0 auto", lineHeight: 1.6 }}>
+            请先确保清单项已绑定定额，然后点击上方「执行计算」按钮开始计价。
+            <br />计算将根据定额绑定自动生成费用明细和溯源。
           </div>
         </div>
       )}

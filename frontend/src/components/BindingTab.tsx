@@ -166,18 +166,56 @@ export default function BindingTab({ projectId }: Props) {
 
   return (
     <div>
-      <Space style={{ marginBottom: 20 }} size="middle">
-        <Tag color="blue" style={{ padding: "4px 12px", fontSize: 13 }}>✓ 已绑定 {rows.length - unboundRows.length}</Tag>
-        <Tag color="red" style={{ padding: "4px 12px", fontSize: 13 }}>○ 未绑定 {unboundRows.length}</Tag>
-        <Button
-          type="primary" icon={<ThunderboltOutlined />}
-          loading={batchLoading}
-          onClick={handleBatchBind}
-          disabled={unboundRows.length === 0}
-        >
-          AI 批量智能绑定（{unboundRows.length} 项）
-        </Button>
-      </Space>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 16, marginBottom: 20,
+        padding: "12px 16px", background: "var(--bg-surface)",
+        borderRadius: 12, border: "1px solid var(--border)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: "#22c55e" }}>check_circle</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>已绑定 <strong style={{ color: "#22c55e" }}>{rows.length - unboundRows.length}</strong></span>
+        </div>
+        <div style={{
+          width: 1, height: 20, background: "var(--border)", flexShrink: 0,
+        }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: unboundRows.length > 0 ? "#ef4444" : "var(--text-muted)" }}>link_off</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>未绑定 <strong style={{ color: unboundRows.length > 0 ? "#ef4444" : "var(--text-muted)" }}>{unboundRows.length}</strong></span>
+        </div>
+        {rows.length > 0 && (
+          <>
+            <div style={{
+              width: 1, height: 20, background: "var(--border)", flexShrink: 0,
+            }} />
+            <div style={{ flex: 1, maxWidth: 180 }}>
+              <div style={{
+                height: 6, borderRadius: 3, background: "var(--border)",
+                overflow: "hidden",
+              }}>
+                <div style={{
+                  height: "100%", borderRadius: 3,
+                  width: `${Math.round(((rows.length - unboundRows.length) / rows.length) * 100)}%`,
+                  background: "linear-gradient(90deg, #22c55e, #4ade80)",
+                  transition: "width 0.5s ease",
+                }} />
+              </div>
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+              {Math.round(((rows.length - unboundRows.length) / rows.length) * 100)}%
+            </span>
+          </>
+        )}
+        <div style={{ marginLeft: "auto" }}>
+          <Button
+            type="primary" icon={<ThunderboltOutlined />}
+            loading={batchLoading}
+            onClick={handleBatchBind}
+            disabled={unboundRows.length === 0}
+          >
+            AI 批量智能绑定（{unboundRows.length} 项）
+          </Button>
+        </div>
+      </div>
 
       <Table
         rowKey="id" columns={columns} dataSource={rows}

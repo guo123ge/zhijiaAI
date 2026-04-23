@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { message } from "antd";
+import { Badge, message, Tooltip } from "antd";
 import type { BoqItem, CalcSummary, Project } from "../api";
 import { api } from "../api";
 import AiPanel from "../components/AiPanel";
@@ -12,8 +12,10 @@ import CalcTab from "../components/CalcTab";
 import ValidationTab from "../components/ValidationTab";
 import SnapshotTab from "../components/SnapshotTab";
 import SettingsTab from "../components/SettingsTab";
+import ReportView from "../components/ReportView";
+import ProjectSetupWizard from "../components/ProjectSetupWizard";
 
-type View = "dashboard" | "boq" | "binding" | "calc" | "validation" | "snapshot" | "settings";
+type View = "dashboard" | "boq" | "binding" | "calc" | "validation" | "snapshot" | "report" | "setup" | "settings";
 
 interface NavItem {
   key: View;
@@ -28,6 +30,8 @@ const NAV_ITEMS: NavItem[] = [
   { key: "calc", icon: "calculate", label: "计算溯源" },
   { key: "validation", icon: "verified", label: "校验" },
   { key: "snapshot", icon: "photo_camera", label: "快照对比" },
+  { key: "report", icon: "summarize", label: "计价报告" },
+  { key: "setup", icon: "rocket_launch", label: "智能开项" },
   { key: "settings", icon: "settings", label: "设置" },
 ];
 
@@ -38,6 +42,8 @@ const VIEW_META: Record<View, { title: string; desc: string }> = {
   calc: { title: "计算 & 溯源", desc: "执行计价计算并查看明细" },
   validation: { title: "校验", desc: "检查项目数据完整性与正确性" },
   snapshot: { title: "快照 & 差异", desc: "创建快照并对比历史版本" },
+  report: { title: "计价报告", desc: "查看费用汇总、分部分项计价表，导出 Excel/PDF" },
+  setup: { title: "智能开项", desc: "输入工程描述，AI 自动生成工程量清单" },
   settings: { title: "项目设置", desc: "规则包、材料价格、成员管理" },
 };
 
@@ -54,8 +60,8 @@ export default function ProjectDetail() {
 
   // Fetch project info
   useEffect(() => {
-    api.listProjects()
-      .then((ps) => setProject(ps.find((p) => p.id === pid) ?? null))
+    api.getProject(pid)
+      .then((p) => setProject(p))
       .catch(() => {});
   }, [pid]);
 
@@ -87,6 +93,27 @@ export default function ProjectDetail() {
 
   // Header: 一键智能组价 — open wizard
   const handleOpenWizard = () => setWizardOpen(true);
+
+  // Unbound count for badge
+  const unboundCount = useMemo(() => {
+    if (!calcResult) return boqItems.length;
+    const calcedIds = new Set(calcResult.line_results.map((r: any) => r.boq_item_id ?? r.boq_id));
+    return boqItems.filter((b) => !calcedIds.has(b.id)).length;
+  }, [boqItems, calcResult]);
+
+  // Keyboard shortcut: Ctrl+1~9 to switch views
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      const idx = parseInt(e.key, 10);
+      if (idx >= 1 && idx <= NAV_ITEMS.length) {
+        e.preventDefault();
+        setView(NAV_ITEMS[idx - 1].key);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const handleWizardComplete = (result: CalcSummary) => {
     setCalcResult(result);
@@ -124,6 +151,8 @@ export default function ProjectDetail() {
       case "calc": return <CalcTab projectId={pid} />;
       case "validation": return <ValidationTab projectId={pid} />;
       case "snapshot": return <SnapshotTab projectId={pid} />;
+      case "report": return <ReportView projectId={pid} />;
+      case "setup": return <ProjectSetupWizard projectId={pid} onComplete={() => { refreshBoq(); setView("boq"); }} />;
       case "settings": return <SettingsTab projectId={pid} />;
     }
   };
@@ -145,29 +174,42 @@ export default function ProjectDetail() {
           <div className="sidebar-progress">
             <div className="sidebar-progress-label">
               <span>完成进度</span>
-              <span>{progress}%</span>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>{progress}%</span>
             </div>
             <div className="sidebar-progress-bar">
-              <div className="sidebar-progress-bar-fill" style={{ width: `${progress}%` }} />
+              <div
+                className="sidebar-progress-bar-fill"
+                style={{
+                  width: `${progress}%`,
+                  background: progress >= 80 ? "#22c55e" : progress >= 50 ? "var(--primary)" : "#f59e0b",
+                }}
+              />
             </div>
           </div>
         </div>
 
         <nav className="sidebar-nav">
           <div className="sidebar-nav-section">视图控制</div>
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.key}
-              className={`sidebar-nav-item${view === item.key ? " active" : ""}`}
-              onClick={() => {
-                setView(item.key);
-                if (item.key !== "boq") setActiveDivision(undefined);
-              }}
-            >
-              <span className="material-symbols-outlined">{item.icon}</span>
-              <span>{item.label}</span>
-            </button>
-          ))}
+          {NAV_ITEMS.map((item, idx) => {
+            const showBadge = item.key === "binding" && unboundCount > 0;
+            return (
+              <Tooltip key={item.key} title={`${item.label} (⌘${idx + 1})`} placement="right" mouseEnterDelay={0.5}>
+                <button
+                  className={`sidebar-nav-item${view === item.key ? " active" : ""}`}
+                  onClick={() => {
+                    setView(item.key);
+                    if (item.key !== "boq") setActiveDivision(undefined);
+                  }}
+                >
+                  <span className="material-symbols-outlined">{item.icon}</span>
+                  <span>{item.label}</span>
+                  {showBadge && (
+                    <Badge count={unboundCount} size="small" offset={[4, -2]} style={{ fontSize: 10 }} />
+                  )}
+                </button>
+              </Tooltip>
+            );
+          })}
 
           {divisions.length > 0 && (
             <>
@@ -194,7 +236,14 @@ export default function ProjectDetail() {
       <section className="content-center">
         <div className="content-header">
           <div className="content-header-info">
-            <h2>{meta.title}</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2 }}>
+              <h2 style={{ margin: 0 }}>{meta.title}</h2>
+              {project?.status && (
+                <span className={`pmc-status pmc-status-${project.status}`} style={{ fontSize: 11 }}>
+                  {project.status === "draft" ? "草稿" : project.status === "ongoing" ? "进行中" : project.status === "completed" ? "已完成" : "已归档"}
+                </span>
+              )}
+            </div>
             <p>{meta.desc}</p>
           </div>
           <div className="content-header-actions">
@@ -205,6 +254,10 @@ export default function ProjectDetail() {
             <button className="btn-primary" onClick={handleOpenWizard}>
               <span className="material-symbols-outlined">auto_awesome</span>
               <span>一键智能组价</span>
+            </button>
+            <button className="btn-secondary" onClick={() => setView("setup")} style={{ marginLeft: 4 }}>
+              <span className="material-symbols-outlined">rocket_launch</span>
+              <span>全流程</span>
             </button>
           </div>
         </div>

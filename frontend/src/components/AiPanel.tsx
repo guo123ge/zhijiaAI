@@ -10,6 +10,34 @@ interface ChatMsg {
   content: string;
 }
 
+/** Lightweight inline markdown: bold, code, line breaks */
+function MiniMarkdown({ text }: { text: string }) {
+  const lines = text.split("\n");
+  return (
+    <div style={{ whiteSpace: "pre-wrap" }}>
+      {lines.map((line, i) => {
+        // Render bold **text** and inline `code`
+        const parts = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+        return (
+          <span key={i}>
+            {parts.map((p, j) => {
+              if (p.startsWith("**") && p.endsWith("**"))
+                return <strong key={j}>{p.slice(2, -2)}</strong>;
+              if (p.startsWith("`") && p.endsWith("`"))
+                return <code key={j} style={{
+                  background: "rgba(255,255,255,0.06)", padding: "1px 5px",
+                  borderRadius: 4, fontSize: "0.9em",
+                }}>{p.slice(1, -1)}</code>;
+              return <span key={j}>{p}</span>;
+            })}
+            {i < lines.length - 1 && <br />}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 const QUICK_PROMPTS = [
   { icon: "trending_up", text: "项目整体进展如何？" },
   { icon: "link_off", text: "哪些清单项还未绑定？" },
@@ -131,7 +159,9 @@ export default function AiPanel({ projectId }: Props) {
                       <span className="material-symbols-outlined">auto_awesome</span>
                     </div>
                   )}
-                  <div className="ai-float-msg-bubble">{m.content}</div>
+                  <div className="ai-float-msg-bubble">
+                    {m.role === "assistant" ? <MiniMarkdown text={m.content} /> : m.content}
+                  </div>
                 </div>
               ))}
               {loading && (

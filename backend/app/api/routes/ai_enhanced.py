@@ -69,29 +69,50 @@ class RateSuggestionOut(BaseModel):
     "/projects/{project_id}/ai-batch-review",
     response_model=BatchReviewResponse,
 )
-def ai_batch_review(project_id: int) -> BatchReviewResponse:
-    """Run AI batch review on all project bindings."""
-    from app.ai.agents.batch_review_agent import run_batch_review
+def ai_batch_review(
+    project_id: int,
+    db: Session = Depends(get_db),
+) -> BatchReviewResponse:
+    """Run AI batch review on all project bindings (V2 — tool-calling)."""
+    import json
+    import app.ai.tools  # noqa: F401
 
-    result = run_batch_review(project_id=project_id)
+    from app.ai.agents.v2.batch_review_agent_v2 import BatchReviewAgentV2
+    from app.ai.framework.context import AgentContext
+
+    ctx = AgentContext(db=db, project_id=project_id)
+    agent = BatchReviewAgentV2()
+    result = agent.run(ctx, "")
+
+    # Extract structured data from batch_scan_bindings tool result
+    scan_data: dict = {}
+    for s in result.steps:
+        if s.tool_name == "batch_scan_bindings" and s.tool_result:
+            try:
+                scan_data = json.loads(s.tool_result)
+            except (json.JSONDecodeError, KeyError):
+                pass
+            break
+
+    issues_raw = scan_data.get("issues", [])
     return BatchReviewResponse(
-        project_id=result.project_id,
-        total_items=result.total_items,
-        bound_count=result.bound_count,
-        unbound_count=result.unbound_count,
+        project_id=project_id,
+        total_items=scan_data.get("total_items", 0),
+        bound_count=scan_data.get("bound_count", 0),
+        unbound_count=scan_data.get("unbound_count", 0),
         issues=[
             ReviewIssueOut(
-                boq_item_id=i.boq_item_id,
-                boq_code=i.boq_code,
-                boq_name=i.boq_name,
-                severity=i.severity,
-                issue_type=i.issue_type,
-                message=i.message,
-                suggestion=i.suggestion,
+                boq_item_id=i.get("boq_item_id", 0),
+                boq_code=i.get("boq_code", ""),
+                boq_name=i.get("boq_name", ""),
+                severity=i.get("severity", "warning"),
+                issue_type=i.get("type", "unknown"),
+                message=i.get("message", ""),
+                suggestion=i.get("suggestion", ""),
             )
-            for i in result.issues
+            for i in issues_raw
         ],
-        ai_summary=result.ai_summary,
+        ai_summary=result.answer if result.success else None,
         error=result.error,
     )
 

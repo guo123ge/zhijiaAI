@@ -53,10 +53,10 @@ export default function PricingManagement() {
 
   const loadProjects = async () => {
     try {
-      const rows = await api.listProjects();
-      setProjects(rows);
-      if (!projectId && rows.length > 0) {
-        setProjectId(rows[0].id);
+      const res = await api.listProjects();
+      setProjects(res.items);
+      if (!projectId && res.items.length > 0) {
+        setProjectId(res.items[0].id);
       }
     } catch {
       message.error("加载项目失败");
@@ -201,7 +201,7 @@ export default function PricingManagement() {
   ];
 
   return (
-    <div className="page-container" style={{ padding: 24 }}>
+    <div className="page-container">
       <PageBreadcrumb items={[
         { label: "控制面板", path: "/dashboard" },
         { label: "计价管理" },

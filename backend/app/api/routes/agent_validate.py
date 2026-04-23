@@ -12,11 +12,8 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.ai.agents.validation_agent import (
-    AgentStep,
-    ValidationAgentResult,
-    run_validation_agent,
-)
+from app.ai.framework.types import AgentResult, AgentStep
+from app.ai.agents.v2.validation_agent_v2 import run_validation_agent_v2 as run_validation_agent
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +56,7 @@ def agent_validate_stream(
     question = payload.question if payload else ""
 
     step_queue: queue.Queue[AgentStep | None] = queue.Queue()
-    result_holder: list[ValidationAgentResult] = []
+    result_holder: list[AgentResult] = []
 
     def on_step(step: AgentStep):
         step_queue.put(step)
@@ -76,7 +73,7 @@ def agent_validate_stream(
             result_holder.append(result)
         except Exception as exc:
             logger.error("Validation agent failed: %s", exc)
-            result_holder.append(ValidationAgentResult(
+            result_holder.append(AgentResult(
                 answer=f"审核Agent执行失败: {exc}",
                 error="agent_error",
             ))
@@ -95,14 +92,14 @@ def agent_validate_stream(
                     final = {
                         "type": "done",
                         "answer": r.answer,
-                        "issues_found": r.issues_found,
+                        "issues_found": r.extra.get("issues_found", 0),
                         "error": r.error,
                     }
                     yield f"data: {json.dumps(final, ensure_ascii=False)}\n\n"
                 break
 
             data = {
-                "type": step.type,
+                "type": step.type.value if hasattr(step.type, 'value') else step.type,
                 "content": step.content,
                 "tool_name": step.tool_name,
                 "tool_args": step.tool_args,
@@ -146,7 +143,7 @@ def agent_validate(
         answer=result.answer,
         steps=[
             ValidationStepOut(
-                type=s.type,
+                type=s.type.value if hasattr(s.type, 'value') else s.type,
                 content=s.content,
                 tool_name=s.tool_name,
                 tool_args=s.tool_args,
@@ -154,6 +151,6 @@ def agent_validate(
             )
             for s in result.steps
         ],
-        issues_found=result.issues_found,
+        issues_found=result.extra.get("issues_found", 0),
         error=result.error,
     )

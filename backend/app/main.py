@@ -13,6 +13,15 @@ from app.api.routes.ai_chat import router as ai_chat_router
 from app.api.routes.ai_settings import router as ai_settings_router
 from app.api.routes.ai_enhanced import router as ai_enhanced_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.graph import router as graph_router
+from app.api.routes.orchestrator import router as orchestrator_router
+from app.api.routes.ai_traces import router as ai_traces_router
+from app.api.routes.memories import router as memories_router
+from app.api.routes.quota_items import router as quota_items_router
+from app.api.routes.skills import router as skills_router
+from app.api.routes.knowledge_links import router as knowledge_links_router
+from app.api.routes.knowledge_notes import router as knowledge_notes_router
+from app.api.routes.tags import router as tags_router
 from app.api.routes.audit_logs import router as audit_logs_router
 from app.api.routes.bindings import router as bindings_router
 from app.api.routes.boq_generate import router as boq_generate_router
@@ -21,6 +30,7 @@ from app.api.routes.boq_items import router as boq_items_router
 from app.api.routes.calculate import router as calculate_router
 from app.api.routes.collaboration import router as collaboration_router
 from app.api.routes.exports import router as exports_router
+from app.api.routes.reports import router as reports_router
 from app.api.routes.health import router as health_router
 from app.api.routes.imports import router as imports_router
 from app.api.routes.match import router as match_router
@@ -45,7 +55,7 @@ app = FastAPI(title="AI Native Valuation Backend", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["*"],  # DEV: allow all origins; restrict in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -134,6 +144,7 @@ app.include_router(match_router, prefix="/api")
 app.include_router(calculate_router, prefix="/api")
 app.include_router(imports_router, prefix="/api")
 app.include_router(exports_router, prefix="/api")
+app.include_router(reports_router, prefix="/api")
 app.include_router(provenance_router, prefix="/api")
 app.include_router(rule_packages_router, prefix="/api")
 app.include_router(material_prices_router, prefix="/api")
@@ -155,3 +166,12 @@ app.include_router(drawing_recognition_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
 app.include_router(ai_enhanced_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
+app.include_router(tags_router, prefix="/api")
+app.include_router(knowledge_links_router, prefix="/api")
+app.include_router(knowledge_notes_router, prefix="/api")
+app.include_router(graph_router, prefix="/api")
+app.include_router(orchestrator_router, prefix="/api")
+app.include_router(ai_traces_router, prefix="/api")
+app.include_router(memories_router, prefix="/api")
+app.include_router(skills_router, prefix="/api")
+app.include_router(quota_items_router, prefix="/api")

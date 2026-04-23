@@ -56,7 +56,7 @@ export default function AuditWorkbench() {
   const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
-    api.listProjects().then(setProjects).catch(() => {});
+    api.listProjects().then((res) => setProjects(res.items)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -108,7 +108,7 @@ export default function AuditWorkbench() {
   };
 
   return (
-    <div className="page-container" style={{ padding: 24 }}>
+    <div className="page-container">
       <PageBreadcrumb items={[
         { label: "控制台", path: "/dashboard" },
         { label: "审计管理" },

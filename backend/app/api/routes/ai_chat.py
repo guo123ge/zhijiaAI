@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.ai.agents.chat_agent import chat_with_project_context
+from app.ai.agents.v2.chat_agent_v2 import chat_with_project_context_v2 as chat_with_project_context
 from app.db.session import get_db
 from app.models.boq_item import BoqItem
 from app.models.calc_result import CalcResult

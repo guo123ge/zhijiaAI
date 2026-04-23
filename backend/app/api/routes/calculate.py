@@ -73,6 +73,45 @@ def run_calculate(payload: CalculateRequest) -> CalculateResponse:
 
 # --- Real project calculation ----------------------------------------------
 
+@router.post("/projects/{project_id}/calculate:dirty", response_model=ProjectCalcSummary)
+def calculate_dirty_items(
+    project_id: int,
+    db: Session = Depends(get_db),
+) -> ProjectCalcSummary:
+    """Incremental recalc — only recompute BOQ items with is_dirty=1."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    dirty_count = (
+        db.query(BoqItem)
+        .filter(BoqItem.project_id == project_id, BoqItem.is_dirty == 1)
+        .count()
+    )
+    summary, line_results = run_project_calculation(
+        project_id=project_id, db=db, incremental=True,
+    )
+
+    lines_out = [
+        LineCalcResultOut(
+            boq_item_id=boq.id, boq_code=boq.code, boq_name=boq.name,
+            labor_cost=result.labor_cost, material_cost=result.material_cost,
+            machine_cost=result.machine_cost, direct_cost=result.direct_cost,
+            management_fee=result.management_fee, profit=result.profit,
+            regulatory_fee=result.regulatory_fee,
+            pre_tax_total=result.pre_tax_total, tax=result.tax, total=result.total,
+        )
+        for boq, result in line_results
+    ]
+    return ProjectCalcSummary(
+        total_direct=summary.total_direct, total_management=summary.total_management,
+        total_profit=summary.total_profit, total_regulatory=summary.total_regulatory,
+        total_pre_tax=summary.total_pre_tax, total_tax=summary.total_tax,
+        total_measures=summary.total_measures, grand_total=summary.grand_total,
+        line_results=lines_out,
+    )
+
+
 @router.post("/projects/{project_id}/calculate", response_model=ProjectCalcSummary)
 def calculate_project(
     project_id: int,

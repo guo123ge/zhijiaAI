@@ -11,7 +11,6 @@ import {
   InfoCircleOutlined,
   CheckCircleOutlined,
   SendOutlined,
-  ThunderboltOutlined,
 } from "@ant-design/icons";
 import type { AgentStep, BoqItem } from "../api";
 import { api } from "../api";
@@ -179,6 +178,17 @@ export default function AgentPanel({ projectId, boqItem, open, onClose, onBindin
           if (step.error) {
             message.warning(`Agent 警告: ${step.error}`);
           }
+        } else if (step.type === "thinking") {
+          // Merge consecutive streaming thinking deltas into a single step
+          // so a sentence streamed token-by-token doesn't render as many rows.
+          setSteps((prev) => {
+            const last = prev[prev.length - 1];
+            if (last && last.type === "thinking") {
+              const merged = { ...last, content: (last.content || "") + (step.content || "") };
+              return [...prev.slice(0, -1), merged];
+            }
+            return [...prev, step];
+          });
         } else {
           setSteps((prev) => [...prev, step]);
         }
@@ -224,7 +234,7 @@ export default function AgentPanel({ projectId, boqItem, open, onClose, onBindin
           onChange={(e) => setInstruction(e.target.value)}
           onPressEnter={handleRun}
           disabled={running}
-          prefix={<ThunderboltOutlined />}
+          
         />
         <Button
           type="primary"

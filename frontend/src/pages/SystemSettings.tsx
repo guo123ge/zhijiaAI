@@ -89,7 +89,7 @@ export default function SystemSettings() {
   const activeProvider = aiSettings.provider;
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: "32px 24px" }}>
+    <div style={{ padding: "4px 0" }}>
       <div style={{ marginBottom: 28 }}>
         <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 20 }}>
           <ApiOutlined /> AI 模型配置
@@ -118,8 +118,8 @@ export default function SystemSettings() {
             <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>超时 (秒)</div>
             <InputNumber
               value={aiSettings.timeout_seconds}
-              min={5} max={120}
-              onChange={(v) => setAiSettings({ ...aiSettings, timeout_seconds: v ?? 20 })}
+              min={5} max={600}
+              onChange={(v) => setAiSettings({ ...aiSettings, timeout_seconds: v ?? 180 })}
               style={{ width: 80 }}
             />
           </div>
@@ -170,7 +170,7 @@ export default function SystemSettings() {
                       placeholder={`输入 ${p.label} 的 API Key`}
                       value={cfg.api_key}
                       onChange={(e) => handleField(p.key, "api_key", e.target.value)}
-                      style={{ flex: 1, maxWidth: 480 }}
+                      style={{ flex: 1 }}
                     />
                     <Tooltip title={hasKey ? "发送测试消息验证连通性" : "请先输入 API Key"}>
                       <Button

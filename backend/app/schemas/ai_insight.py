@@ -1,6 +1,6 @@
 """Schemas for AI insight and chat endpoints."""
 
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -14,7 +14,7 @@ class AIAnalyzeRequest(BaseModel):
 
 
 class AIAnalyzeResponse(BaseModel):
-    insight: str | None = Field(
+    insight: Optional[str] = Field(
         None,
         description="AI-generated insight text, or null if AI unavailable",
     )
@@ -32,7 +32,7 @@ class AIChatRequest(BaseModel):
 
 
 class AIChatResponse(BaseModel):
-    reply: str | None = Field(
+    reply: Optional[str] = Field(
         None,
         description="AI-generated reply, or null if AI unavailable",
     )

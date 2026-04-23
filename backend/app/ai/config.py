@@ -31,7 +31,7 @@ _DEFAULT_BASE_URLS: dict[str, str] = {
 _DEFAULT_MODELS: dict[str, str] = {
     "deepseek": "deepseek-chat",
     "qwen": "qwen-plus",
-    "kimi": "moonshot-v1-8k",
+    "kimi": "kimi-k2.5",
     "glm": "glm-4",
     "openai": "gpt-4o-mini",
 }
@@ -58,7 +58,10 @@ class AISettings:
     api_key: str | None = None
     base_url: str | None = None
     model: str | None = None
-    timeout_seconds: float = 20.0
+    # OPT-4: optional per-tier overrides; fall back to ``model`` when None.
+    model_fast: str | None = None
+    model_powerful: str | None = None
+    timeout_seconds: float = 180.0
     enable_audit_logs: bool = False
 
     def is_enabled(self) -> bool:
@@ -66,6 +69,18 @@ class AISettings:
 
     def is_configured(self) -> bool:
         return bool(self.api_key and self.model)
+
+    def resolve_model_for_tier(self, tier_level: int) -> str:
+        """OPT-4: Map tier level (1=fast / 2=balanced / 3=powerful) → model name.
+
+        Falls back to ``self.model`` (the balanced default) when a tier override
+        is not configured. Callers can safely pass level=2 to get the default.
+        """
+        if tier_level <= 1 and self.model_fast:
+            return self.model_fast
+        if tier_level >= 3 and self.model_powerful:
+            return self.model_powerful
+        return self.model or ""
 
 
 def _env(key: str, default: str = "") -> str:
@@ -98,8 +113,20 @@ def get_ai_settings() -> AISettings:
         or _DEFAULT_MODELS.get(provider, "")
         or None
     )
+    # OPT-4: Optional per-tier overrides. Per-provider takes precedence.
+    # e.g. AI_DEEPSEEK_MODEL_FAST, AI_MODEL_POWERFUL.
+    model_fast = (
+        _env(f"AI_{upper}_MODEL_FAST")
+        or _env("AI_MODEL_FAST")
+        or None
+    )
+    model_powerful = (
+        _env(f"AI_{upper}_MODEL_POWERFUL")
+        or _env("AI_MODEL_POWERFUL")
+        or None
+    )
 
-    timeout_seconds = _to_float(os.getenv("AI_TIMEOUT_SECONDS"), 20.0)
+    timeout_seconds = _to_float(os.getenv("AI_TIMEOUT_SECONDS"), 180.0)
     enable_audit_logs = _to_bool(os.getenv("AI_ENABLE_AUDIT_LOGS"), default=False)
 
     return AISettings(
@@ -107,8 +134,51 @@ def get_ai_settings() -> AISettings:
         api_key=api_key,
         base_url=base_url,
         model=model,
+        model_fast=model_fast,
+        model_powerful=model_powerful,
         timeout_seconds=timeout_seconds,
         enable_audit_logs=enable_audit_logs,
+    )
+
+
+# ───────────────────────────────────────────────────────────────────
+# Phase H8: Memory / Embedding production settings
+# ───────────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class MemorySettings:
+    """Runtime settings for the Memory + Embedding subsystem."""
+
+    # "" = auto-detect (openai if key available, else hash fallback)
+    # "hash" / "openai" = force
+    embedding_backend: str
+    # Default for orchestrate API when request doesn't override it.
+    auto_save_memory_default: bool
+    # Extractor budget (max memory items persisted per run).
+    memory_extractor_max_items: int
+
+
+def get_memory_settings() -> MemorySettings:
+    """Build MemorySettings from environment variables."""
+    backend = _env("EMBEDDING_BACKEND", "").strip().lower()
+    if backend not in ("", "hash", "openai"):
+        backend = ""
+
+    max_items_raw = _env("AI_MEMORY_EXTRACTOR_MAX_ITEMS", "").strip()
+    try:
+        max_items = int(max_items_raw) if max_items_raw else 3
+    except ValueError:
+        max_items = 3
+    if max_items < 1:
+        max_items = 1
+
+    return MemorySettings(
+        embedding_backend=backend,
+        auto_save_memory_default=_to_bool(
+            os.getenv("AI_AUTO_SAVE_MEMORY"), default=False
+        ),
+        memory_extractor_max_items=max_items,
     )
 
 
@@ -129,7 +199,7 @@ def get_ai_settings_payload() -> dict[str, Any]:
 
     return {
         "provider": provider,
-        "timeout_seconds": _to_float(os.getenv("AI_TIMEOUT_SECONDS"), 20.0),
+        "timeout_seconds": _to_float(os.getenv("AI_TIMEOUT_SECONDS"), 180.0),
         "enable_audit_logs": _to_bool(os.getenv("AI_ENABLE_AUDIT_LOGS"), default=False),
         "providers": providers,
     }

@@ -1,4 +1,10 @@
+from app.models.agent_memory import AgentMemory
+from app.models.agent_trace import AgentTrace
 from app.models.audit_log import AuditLog
+from app.models.entity_tag import EntityTag
+from app.models.knowledge_link import KnowledgeLink
+from app.models.knowledge_note import KnowledgeNote
+from app.models.tag import Tag
 from app.models.boq_item import BoqItem
 from app.models.boq_standard_code import BoqStandardCode
 from app.models.calc_result import CalcResult
@@ -21,6 +27,8 @@ from app.models.system_setting import SystemSetting
 from app.models.user import User
 
 __all__ = [
+    "AgentMemory",
+    "AgentTrace",
     "AuditLog",
     "Comment",
     "MeasureItem",
@@ -42,4 +50,8 @@ __all__ = [
     "Snapshot",
     "SystemSetting",
     "User",
+    "Tag",
+    "EntityTag",
+    "KnowledgeLink",
+    "KnowledgeNote",
 ]

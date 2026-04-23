@@ -26,12 +26,12 @@ export default function Dashboard() {
     (async () => {
       setLoading(true);
       try {
-        const projs = await api.listProjects();
-        setProjects(projs);
+        const res = await api.listProjects();
+        setProjects(res.items);
 
         const map = new Map<number, ProjectStats>();
         await Promise.all(
-          projs.map(async (p) => {
+          res.items.map(async (p) => {
             const entry: ProjectStats = { project: p };
             try { entry.dash = await api.getDashboardSummary(p.id); } catch { /* ok */ }
             try { entry.calc = await api.getCalcSummary(p.id); } catch { /* ok */ }
