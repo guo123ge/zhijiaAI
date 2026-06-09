@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_ROOT="${APP_ROOT:-/opt/aicost}"
 RELEASE_ROOT="${RELEASE_ROOT:-$(pwd)}"
-BACKEND_PORT="${BACKEND_PORT:-8000}"
+BACKEND_PORT="${BACKEND_PORT:-8001}"
 PUBLIC_ORIGIN="${PUBLIC_ORIGIN:-http://124.221.103.75}"
 DB_PATH="${DB_PATH:-$APP_ROOT/data/valuation.db}"
 
@@ -25,6 +25,14 @@ $SUDO dnf install -y python3 python3-pip nginx sqlite rsync >/dev/null
 if ! command -v pm2 >/dev/null 2>&1; then
   echo "pm2 is not installed or not in PATH. Install Node.js/PM2 first, then rerun."
   exit 1
+fi
+
+if ss -lnt "( sport = :$BACKEND_PORT )" | grep -q LISTEN; then
+  if ! pm2 jlist | grep -q '"name":"aicost-api"'; then
+    echo "Port $BACKEND_PORT is already in use by another service. Refusing to deploy over it."
+    echo "Choose a free port explicitly, for example: BACKEND_PORT=8011 bash deploy/install_aicost_server.sh"
+    exit 1
+  fi
 fi
 
 echo "[2/8] Creating directories"
