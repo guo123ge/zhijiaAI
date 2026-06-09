@@ -394,9 +394,10 @@ class OpenAICompatProvider(BaseAIProvider):
         tools: list[dict[str, Any]],
         model: str | None = None,
     ) -> Iterator[StreamEvent]:
-        response = self.generate_with_tools(
-            task=task, messages=messages, tools=tools, model=model,
-        )
+        kwargs: dict[str, Any] = {"task": task, "messages": messages, "tools": tools}
+        if model is not None:
+            kwargs["model"] = model
+        response = self.generate_with_tools(**kwargs)
         content = response.get("content") or ""
         if content:
             yield StreamEvent(type="content_delta", text=content)

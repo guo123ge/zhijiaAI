@@ -16,6 +16,7 @@ import {
   ThunderboltOutlined,
   ClockCircleOutlined,
 } from "@ant-design/icons";
+import { API_BASE } from "../api";
 
 interface Props {
   projectId: number;
@@ -49,7 +50,7 @@ const TEMPLATES = [
   },
 ];
 
-const BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000/api";
+const BASE = API_BASE;
 
 export default function ProjectSetupWizard({ projectId, onComplete }: Props) {
   const [stage, setStage] = useState<Stage>("input");

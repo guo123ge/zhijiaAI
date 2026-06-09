@@ -37,7 +37,6 @@ class ProjectSetupAgent(BaseAgent):
             "recognize_drawing_tool",
             # Standard code lookup
             "search_standard_codes",
-            "batch_search_standard_codes",  # OPT-1: preferred for multi-keyword
             # Read existing state
             "query_boq_items",
             "get_divisions_summary",
@@ -48,7 +47,7 @@ class ProjectSetupAgent(BaseAgent):
 
     @property
     def max_turns(self) -> int:
-        return 15
+        return 25
 
     @property
     def system_prompt(self) -> str:

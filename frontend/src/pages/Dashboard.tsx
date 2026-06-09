@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Spin, message } from "antd";
 import type { CalcSummary, DashboardSummary, Project } from "../api";
 import { api } from "../api";
+import type { TrialInfo } from "../auth";
 
 interface ProjectStats {
   project: Project;
@@ -16,11 +17,16 @@ export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [statsMap, setStatsMap] = useState<Map<number, ProjectStats>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [trialState, setTrialState] = useState<TrialInfo | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [chatMsgs, setChatMsgs] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const chatBodyRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api.getTrialStatus().then(setTrialState).catch(() => setTrialState(null));
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -112,6 +118,23 @@ export default function Dashboard() {
   const heroUnbound = topProject?.dash?.unbound_count ?? 0;
   const heroProgress = heroBoqCount > 0 ? Math.round(((heroBoqCount - heroUnbound) / heroBoqCount) * 100) : 0;
 
+  const trialInfo = useMemo(() => {
+    if (!trialState) return null;
+    const endsAt = new Date(trialState.ends_at);
+    if (Number.isNaN(endsAt.getTime())) return null;
+    const remainingMs = endsAt.getTime() - Date.now();
+    const remainingDays = Math.max(0, Math.ceil(remainingMs / 86400000));
+    return {
+      days: trialState.trial_days,
+      remainingDays,
+      endsAtText: endsAt.toLocaleDateString("zh-CN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }),
+    };
+  }, [trialState]);
+
   const workflowSteps = useMemo(() => {
     const boundPct = heroBoqCount > 0 ? (heroBoqCount - heroUnbound) / heroBoqCount : 0;
     const hasCalc = !!topProject?.calc && topProject.calc.grand_total > 0;
@@ -186,6 +209,20 @@ export default function Dashboard() {
   return (
     <div className="dash-root">
       <div className="dash-content">
+        {trialInfo && (
+          <section className="dash-trial-banner">
+            <div className="dash-trial-banner-main">
+              <span className="material-symbols-outlined">verified</span>
+              <div>
+                <strong>{trialInfo.days} 天试用已启用</strong>
+                <p>当前试用还剩 {trialInfo.remainingDays} 天，到期日 {trialInfo.endsAtText}。</p>
+              </div>
+            </div>
+            <button className="dash-trial-banner-btn" onClick={() => navigate("/projects")}>
+              开始体验
+            </button>
+          </section>
+        )}
 
         {/* ── Hero Section ── */}
         <section className="dash-hero-grid">

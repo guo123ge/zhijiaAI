@@ -119,8 +119,9 @@ def match_skills(
                 "description": s.description,
                 "triggers": list(s.triggers),
                 "tags": list(s.tags),
+                "score": float(len(matches) - i),
             }
-            for s in matches
+            for i, s in enumerate(matches)
         ],
     })
 

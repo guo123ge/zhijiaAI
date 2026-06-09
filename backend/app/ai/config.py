@@ -61,7 +61,7 @@ class AISettings:
     # OPT-4: optional per-tier overrides; fall back to ``model`` when None.
     model_fast: str | None = None
     model_powerful: str | None = None
-    timeout_seconds: float = 180.0
+    timeout_seconds: float = 20.0
     enable_audit_logs: bool = False
 
     def is_enabled(self) -> bool:
@@ -126,7 +126,7 @@ def get_ai_settings() -> AISettings:
         or None
     )
 
-    timeout_seconds = _to_float(os.getenv("AI_TIMEOUT_SECONDS"), 180.0)
+    timeout_seconds = _to_float(os.getenv("AI_TIMEOUT_SECONDS"), 20.0)
     enable_audit_logs = _to_bool(os.getenv("AI_ENABLE_AUDIT_LOGS"), default=False)
 
     return AISettings(
@@ -199,7 +199,7 @@ def get_ai_settings_payload() -> dict[str, Any]:
 
     return {
         "provider": provider,
-        "timeout_seconds": _to_float(os.getenv("AI_TIMEOUT_SECONDS"), 180.0),
+        "timeout_seconds": _to_float(os.getenv("AI_TIMEOUT_SECONDS"), 20.0),
         "enable_audit_logs": _to_bool(os.getenv("AI_ENABLE_AUDIT_LOGS"), default=False),
         "providers": providers,
     }

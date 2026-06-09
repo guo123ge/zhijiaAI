@@ -34,3 +34,6 @@ venv/
 
 # Logs
 *.log
+
+# Local release bundles
+release/

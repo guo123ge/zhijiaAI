@@ -14,6 +14,7 @@ from app.services.auth_service import (
     decode_access_token,
     hash_password,
 )
+from app.services.activation_service import activate_trial_code, get_active_trial, trial_payload
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -38,6 +39,23 @@ class TokenResponse(BaseModel):
     username: str
     role: str
     display_name: str
+
+
+class TrialActivateRequest(BaseModel):
+    code: str
+    requested_days: int
+
+
+class TrialTokenResponse(TokenResponse):
+    trial: dict
+
+
+class TrialStatusResponse(BaseModel):
+    active: bool
+    trial_days: int
+    remaining_days: int
+    started_at: str
+    ends_at: str
 
 
 class UserOut(BaseModel):
@@ -134,3 +152,36 @@ def get_me(user: User = Depends(require_role("owner", "editor", "viewer"))) -> U
         display_name=user.display_name,
         role=user.role,
     )
+
+
+@router.post("/trial/activate", response_model=TrialTokenResponse)
+def activate_trial(payload: TrialActivateRequest, db: Session = Depends(get_db)) -> TrialTokenResponse:
+    if payload.requested_days not in (7, 14):
+        raise HTTPException(status_code=400, detail="试用天数必须为 7 或 14")
+    try:
+        user, trial = activate_trial_code(db, code=payload.code, requested_days=payload.requested_days)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    token = create_access_token(user.id, user.username, user.role, expires_at=trial.ends_at)
+    return TrialTokenResponse(
+        access_token=token,
+        user_id=user.id,
+        username=user.username,
+        role=user.role,
+        display_name=user.display_name,
+        trial=trial_payload(trial),
+    )
+
+
+@router.get("/trial/me", response_model=TrialStatusResponse)
+def get_trial_status(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+) -> TrialStatusResponse:
+    user = get_current_user(authorization=authorization, db=db)
+    if not user:
+        raise HTTPException(status_code=401, detail="未激活或登录已过期")
+    trial = get_active_trial(db, user.id)
+    if not trial:
+        raise HTTPException(status_code=401, detail="试用已过期或未激活")
+    return TrialStatusResponse(**trial_payload(trial))

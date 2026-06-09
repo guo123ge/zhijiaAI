@@ -11,7 +11,10 @@ from sqlalchemy.orm import Session
 
 from app.models.user import User
 
+APP_ENV = os.getenv("APP_ENV", "development").lower()
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-production")
+if APP_ENV == "production" and SECRET_KEY == "dev-secret-change-in-production":
+    raise RuntimeError("JWT_SECRET_KEY must be set in production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))  # 24h default
 
@@ -26,8 +29,13 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_access_token(user_id: int, username: str, role: str) -> str:
-    expires = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+def create_access_token(
+    user_id: int,
+    username: str,
+    role: str,
+    expires_at: datetime | None = None,
+) -> str:
+    expires = expires_at or datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": str(user_id),
         "username": username,
@@ -54,6 +62,8 @@ def authenticate_user(db: Session, username: str, password: str) -> User | None:
 
 def get_or_create_default_user(db: Session) -> User:
     """Ensure a default admin user exists (for dev convenience)."""
+    if APP_ENV == "production":
+        raise RuntimeError("Default admin creation is disabled in production")
     user = db.query(User).filter(User.username == "admin").first()
     if not user:
         user = User(

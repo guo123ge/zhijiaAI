@@ -64,12 +64,12 @@ export default function ContactUs() {
             </p>
             <div className="contact-wechat-id">
               <span className="material-symbols-outlined">chat</span>
-              <span>微信号：<strong>Changning_Lee</strong></span>
+              <span>微信号：<strong>guo968673ge</strong></span>
             </div>
           </div>
           <div className="contact-card-right">
             <div className="contact-qr-wrapper">
-              <img src={`${import.meta.env.BASE_URL}qrcode.jpg`} alt="微信二维码" />
+              <img src={`${import.meta.env.BASE_URL}wechat-qrcode.png`} alt="微信二维码" />
             </div>
             <span className="contact-qr-hint">微信扫一扫，添加好友</span>
           </div>

@@ -1,18 +1,45 @@
-const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+import { clearAuthSession, getAuthToken } from "./auth";
+import type { AuthSession, TrialInfo } from "./auth";
 
-async function request<T>(path: string, opts?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...opts,
-  });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+export const API_BASE = (import.meta.env.VITE_API_BASE ?? "/api/aicost").replace(/\/$/, "");
+
+function authHeaders(extra?: HeadersInit): HeadersInit {
+  const token = getAuthToken();
+  return {
+    ...(extra ?? {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (res.status === 401) {
+    clearAuthSession();
+    window.location.assign(`${import.meta.env.BASE_URL || "/"}?activate=1`);
+  }
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`;
+    try {
+      const body = await res.json();
+      detail = body.detail || detail;
+    } catch {
+      // keep default detail
+    }
+    throw new Error(detail);
+  }
   return res.json() as Promise<T>;
 }
 
+async function request<T>(path: string, opts?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: authHeaders({ "Content-Type": "application/json", ...(opts?.headers ?? {}) }),
+    ...opts,
+  });
+  return handleResponse<T>(res);
+}
+
 async function upload<T>(path: string, formData: FormData): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { method: "POST", body: formData });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return res.json() as Promise<T>;
+  const res = await fetch(`${API_BASE}${path}`, { method: "POST", body: formData, headers: authHeaders() });
+  return handleResponse<T>(res);
 }
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -699,6 +726,14 @@ export interface GraphDataOut { nodes: GraphNode[]; edges: GraphEdge[] }
 // ─── API ─────────────────────────────────────────────────────────
 
 export const api = {
+  // Auth
+  activateTrial: (code: string, requestedDays: 7 | 14) =>
+    request<AuthSession>("/auth/trial/activate", {
+      method: "POST",
+      body: JSON.stringify({ code, requested_days: requestedDays }),
+    }),
+  getTrialStatus: () => request<TrialInfo>("/auth/trial/me"),
+
   // Projects
   listProjects: (params?: ProjectListParams) => {
     const qs = new URLSearchParams();
@@ -811,9 +846,9 @@ export const api = {
     }),
 
   // Export (POST endpoints — trigger download via form submission)
-  exportValuationUrl: (pid: number) => `${BASE}/exports/valuation-report?project_id=${pid}`,
+  exportValuationUrl: (pid: number) => `${API_BASE}/exports/valuation-report?project_id=${pid}`,
   exportDiffUrl: (aId: number, bId: number) =>
-    `${BASE}/exports/diff-report?snapshot_a_id=${aId}&snapshot_b_id=${bId}`,
+    `${API_BASE}/exports/diff-report?snapshot_a_id=${aId}&snapshot_b_id=${bId}`,
 
   // Rule Packages
   listRulePackages: () => request<RulePackage[]>("/rule-packages"),
@@ -942,8 +977,7 @@ export const api = {
     instruction: string,
     onStep: (step: AgentStep) => void,
   ): Promise<void> => {
-    const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
-    return fetch(`${BASE}/projects/${pid}/boq-items/${boqItemId}/agent-valuate/stream`, {
+    return fetch(`${API_BASE}/projects/${pid}/boq-items/${boqItemId}/agent-valuate/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ instruction }),
@@ -1094,8 +1128,7 @@ export const api = {
     onStep: (step: AgentStep) => void,
     extras?: OrchestrateRequestExtras,
   ): Promise<void> => {
-    const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
-    return fetch(`${BASE}/projects/${pid}/orchestrate/stream`, {
+    return fetch(`${API_BASE}/projects/${pid}/orchestrate/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ instruction, ...(extras ?? {}) }),
@@ -1264,7 +1297,7 @@ export const api = {
   },
 
   exportReport: (pid: number, format: "pdf" | "excel" = "pdf") => {
-    const url = `${BASE}/projects/${pid}/report/export?format=${format}`;
+    const url = `${API_BASE}/projects/${pid}/report/export?format=${format}`;
     return fetch(url).then((r) => {
       if (!r.ok) throw new Error(`Export failed: ${r.status}`);
       return r.blob();

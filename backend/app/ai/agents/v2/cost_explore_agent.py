@@ -52,7 +52,7 @@ class CostExploreAgent(BaseAgent):
 
     @property
     def max_turns(self) -> int:
-        return 20  # 8 tools, may need several search rounds
+        return 8
 
     @property
     def max_tool_concurrency(self) -> int:

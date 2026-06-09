@@ -1,5 +1,6 @@
 from app.models.agent_memory import AgentMemory
 from app.models.agent_trace import AgentTrace
+from app.models.activation_code import ActivationCode
 from app.models.audit_log import AuditLog
 from app.models.entity_tag import EntityTag
 from app.models.knowledge_link import KnowledgeLink
@@ -24,9 +25,11 @@ from app.models.quota_resource_material_mapping import QuotaResourceMaterialMapp
 from app.models.rule_package import RulePackage
 from app.models.snapshot import Snapshot
 from app.models.system_setting import SystemSetting
+from app.models.trial_activation import TrialActivation
 from app.models.user import User
 
 __all__ = [
+    "ActivationCode",
     "AgentMemory",
     "AgentTrace",
     "AuditLog",
@@ -49,6 +52,7 @@ __all__ = [
     "MaterialPrice",
     "Snapshot",
     "SystemSetting",
+    "TrialActivation",
     "User",
     "Tag",
     "EntityTag",

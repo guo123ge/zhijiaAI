@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { api } from "../api";
+import { ACTIVATE_EVENT, saveAuthSession } from "../auth";
 
 const FEATURES = [
   {
@@ -51,8 +54,74 @@ const FOOTER_LINKS = {
   服务: ["私有化部署", "定制化开发", "专家咨询", "培训支持"],
 };
 
+type TrialDays = 7 | 14;
+
+const TRIAL_OPTIONS: Array<{
+  days: TrialDays;
+  title: string;
+  desc: string;
+  badge: string;
+}> = [
+  {
+    days: 7,
+    title: "7 天试用",
+    desc: "适合快速体验核心项目、清单与组价流程。",
+    badge: "快速体验",
+  },
+  {
+    days: 14,
+    title: "14 天试用",
+    desc: "适合完整验证图纸识别、AI 组价和报表流程。",
+    badge: "推荐",
+  },
+];
+
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [trialOpen, setTrialOpen] = useState(false);
+  const [selectedTrialDays, setSelectedTrialDays] = useState<TrialDays>(14);
+  const [activationCode, setActivationCode] = useState("");
+  const [activationError, setActivationError] = useState("");
+  const [activationLoading, setActivationLoading] = useState(false);
+
+  const openTrial = (days: TrialDays = 14) => {
+    setSelectedTrialDays(days);
+    setActivationCode("");
+    setActivationError("");
+    setTrialOpen(true);
+  };
+
+  useEffect(() => {
+    const onActivate = (event: Event) => {
+      const days = (event as CustomEvent<{ days?: TrialDays }>).detail?.days;
+      openTrial(days === 7 || days === 14 ? days : 14);
+    };
+    window.addEventListener(ACTIVATE_EVENT, onActivate);
+    if (new URLSearchParams(window.location.search).has("activate")) {
+      openTrial(14);
+    }
+    return () => window.removeEventListener(ACTIVATE_EVENT, onActivate);
+  }, []);
+
+  const startTrial = async () => {
+    const code = activationCode.trim();
+    if (!code) {
+      setActivationError("请输入激活码");
+      return;
+    }
+    setActivationLoading(true);
+    setActivationError("");
+    try {
+      const session = await api.activateTrial(code, selectedTrialDays);
+      saveAuthSession(session);
+      setTrialOpen(false);
+      navigate("/dashboard?trial=started");
+    } catch (error) {
+      setActivationError(error instanceof Error ? error.message : "激活失败，请检查激活码");
+    } finally {
+      setActivationLoading(false);
+    }
+  };
 
   return (
     <div className="landing">
@@ -91,8 +160,11 @@ export default function LandingPage() {
             从工程量清单生成、定额智能匹配到市场价实时分析 —— 一站式 AI 平台覆盖全流程，让造价工作更精准、更高效。
           </p>
           <div className="landing-hero-actions">
-            <button className="landing-btn landing-btn-primary landing-btn-lg" onClick={() => navigate("/dashboard")}>
+            <button className="landing-btn landing-btn-primary landing-btn-lg" onClick={() => openTrial(14)}>
               开启 14 天免费试用
+            </button>
+            <button className="landing-btn landing-btn-outline landing-btn-lg" onClick={() => openTrial(7)}>
+              开启 7 天试用
             </button>
             <button className="landing-btn landing-btn-outline landing-btn-lg" onClick={() => navigate("/projects")}>
               浏览演示项目
@@ -171,13 +243,61 @@ export default function LandingPage() {
           <h2>准备好提升您的造价效率了吗？</h2>
           <p>加入超过 500 家领先建筑单位，利用 AI 技术全面提升您的核心竞争力。</p>
           <div className="landing-hero-actions">
-            <button className="landing-btn landing-btn-primary landing-btn-lg" onClick={() => navigate("/dashboard")}>
+            <button className="landing-btn landing-btn-primary landing-btn-lg" onClick={() => openTrial(14)}>
               开启 14 天免费试用
+            </button>
+            <button className="landing-btn landing-btn-outline landing-btn-lg" onClick={() => openTrial(7)}>
+              开启 7 天试用
             </button>
             <button className="landing-btn landing-btn-outline landing-btn-lg">联系技术专家</button>
           </div>
         </div>
       </section>
+
+      {trialOpen && (
+        <div className="landing-trial-modal" role="dialog" aria-modal="true" aria-labelledby="trial-title">
+          <button className="landing-trial-backdrop" aria-label="关闭试用选择" onClick={() => setTrialOpen(false)} />
+          <div className="landing-trial-panel">
+            <div className="landing-trial-header">
+              <span className="landing-section-badge">免费试用</span>
+              <h3 id="trial-title">输入激活码</h3>
+              <p>请选择试用时长，并输入对应的 {selectedTrialDays} 天激活码。</p>
+            </div>
+            <div className="landing-trial-options">
+              {TRIAL_OPTIONS.map((option) => (
+                <button
+                  key={option.days}
+                  className={`landing-trial-option${selectedTrialDays === option.days ? " active" : ""}`}
+                  onClick={() => setSelectedTrialDays(option.days)}
+                >
+                  <span className="landing-trial-badge">{option.badge}</span>
+                  <strong>{option.title}</strong>
+                  <span>{option.desc}</span>
+                </button>
+              ))}
+            </div>
+            <div className="landing-trial-code">
+              <label htmlFor="trial-code">激活码</label>
+              <input
+                id="trial-code"
+                value={activationCode}
+                onChange={(event) => setActivationCode(event.target.value)}
+                placeholder={`请输入 ${selectedTrialDays} 天激活码`}
+                autoComplete="off"
+              />
+              {activationError && <p>{activationError}</p>}
+            </div>
+            <div className="landing-trial-actions">
+              <button className="landing-btn landing-btn-outline landing-btn-lg" onClick={() => setTrialOpen(false)} disabled={activationLoading}>
+                暂不启用
+              </button>
+              <button className="landing-btn landing-btn-primary landing-btn-lg" onClick={startTrial} disabled={activationLoading}>
+                {activationLoading ? "正在激活..." : `激活 ${selectedTrialDays} 天试用`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Footer ── */}
       <footer className="landing-footer">
@@ -215,9 +335,9 @@ export default function LandingPage() {
           <div className="landing-footer-col">
             <h4>添加微信</h4>
             <div className="landing-footer-qrcode">
-              <img src={`${import.meta.env.BASE_URL}qrcode.jpg`} alt="添加微信" />
+              <img src={`${import.meta.env.BASE_URL}wechat-qrcode.png`} alt="添加微信" />
             </div>
-            <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8 }}>Changning_Lee</p>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8 }}>guo968673ge</p>
             <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>扫码添加微信</p>
           </div>
         </div>

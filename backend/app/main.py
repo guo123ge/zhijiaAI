@@ -1,8 +1,11 @@
+import os
+
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import inspect, text
 
 from app.api.routes.agent_validate import router as agent_validate_router
@@ -46,20 +49,70 @@ from app.api.routes.tasks import router as tasks_router
 from app.api.routes.validation import router as validation_router
 from app.api.routes.valuation_management import router as valuation_management_router
 from app.db.base import Base
-from app.db.session import engine
+from app.db.session import SessionLocal, engine
+from app.models.user import User
+from app.services.activation_service import get_active_trial
+from app.services.auth_service import decode_access_token
+
+AuthSessionLocal = SessionLocal
+ENFORCE_ACTIVATION = os.getenv("ENFORCE_ACTIVATION", "1") != "0"
 
 # Import models so SQLAlchemy is aware of them for metadata.create_all
 import app.models  # noqa: F401
 
 app = FastAPI(title="AI Native Valuation Backend", version="0.1.0")
 
+def _cors_origins() -> list[str]:
+    raw = os.getenv("CORS_ALLOW_ORIGINS", "").strip()
+    if not raw:
+        return ["*"] if os.getenv("APP_ENV", "development").lower() != "production" else []
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # DEV: allow all origins; restrict in production
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+PUBLIC_API_PATHS = {
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/trial/activate",
+}
+
+
+@app.middleware("http")
+async def enforce_api_activation(request: Request, call_next):
+    if not ENFORCE_ACTIVATION:
+        return await call_next(request)
+    path = request.url.path
+    if not path.startswith("/api/") or path in PUBLIC_API_PATHS:
+        return await call_next(request)
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
+    authorization = request.headers.get("Authorization", "")
+    if not authorization.startswith("Bearer "):
+        return JSONResponse(status_code=401, content={"detail": "请先输入激活码"})
+    payload = decode_access_token(authorization[7:])
+    if not payload:
+        return JSONResponse(status_code=401, content={"detail": "激活状态已失效，请重新激活"})
+
+    db = AuthSessionLocal()
+    try:
+        user_id = int(payload.get("sub", 0))
+        user = db.query(User).filter(User.id == user_id, User.is_active == 1).first()
+        if not user:
+            return JSONResponse(status_code=401, content={"detail": "用户不存在或已停用"})
+        if user.role != "owner" and not get_active_trial(db, user.id):
+            return JSONResponse(status_code=401, content={"detail": "试用已过期或未激活"})
+    finally:
+        db.close()
+    return await call_next(request)
 
 
 @app.on_event("startup")

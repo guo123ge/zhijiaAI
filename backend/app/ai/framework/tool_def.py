@@ -187,9 +187,14 @@ class ToolDef:
         unexpected_params = []
         if not self._accepts_var_keyword():
             recognized_names = self._recognized_param_names(effective_params)
-            unexpected_params = sorted(
+            original_unexpected = {
                 key for key in args.keys() if key not in recognized_names
-            )
+            }
+            added_by_hooks = set(effective_args.keys()) - set(args.keys())
+            hook_unexpected = {
+                key for key in added_by_hooks if key not in recognized_names
+            }
+            unexpected_params = sorted(original_unexpected | hook_unexpected)
         type_mismatches = []
         for p in effective_params:
             if p.name not in effective_args or effective_args[p.name] is None:
@@ -402,7 +407,12 @@ def _extract_params(func: Callable) -> list[ParamDef]:
         if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
             continue
 
-        py_type = hints.get(pname, str)
+        has_default = p.default is not inspect.Parameter.empty
+        py_type = hints.get(pname)
+        if py_type is None and has_default and p.default is not None:
+            py_type = type(p.default)
+        if py_type is None:
+            py_type = str
         # Handle Optional[X] → X
         origin = getattr(py_type, "__origin__", None)
         if origin is not None:
@@ -411,7 +421,6 @@ def _extract_params(func: Callable) -> list[ParamDef]:
                 py_type = args[0]
 
         json_type = _PY_TO_JSON_TYPE.get(py_type, "string")
-        has_default = p.default is not inspect.Parameter.empty
         params.append(ParamDef(
             name=pname,
             json_type=json_type,

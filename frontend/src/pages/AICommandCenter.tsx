@@ -67,7 +67,7 @@ function renderToolResultSmart(raw: string): React.ReactNode {
     return <pre className="orch-tool-result">{raw.length > 800 ? raw.slice(0, 800) + "..." : raw}</pre>;
   }
 
-  const obj = parsed as Record<string, unknown>;
+  const obj = parsed as Record<string, any>;
 
   // ── Unbound items list ──
   if (Array.isArray(obj.unbound_items)) {
@@ -100,13 +100,14 @@ function renderToolResultSmart(raw: string): React.ReactNode {
   // ── Agent delegation result ──
   if (obj.agent && obj.answer !== undefined) {
     const success = obj.success as boolean;
+    const agentName = String(obj.agent);
     return (
       <div className="orch-result-card">
         <div className="orch-result-header">
           {success
             ? <CheckCircleOutlined style={{ color: "#52c41a" }} />
             : <CloseCircleOutlined style={{ color: "#ff4d4f" }} />}
-          <Tag color={success ? "green" : "red"}>{AGENT_LABELS[String(obj.agent)] || obj.agent}</Tag>
+          <Tag color={success ? "green" : "red"}>{AGENT_LABELS[agentName] || agentName}</Tag>
           {obj.tool_calls_made != null && (
             <span style={{ color: "#94a3b8", fontSize: 12 }}>{String(obj.tool_calls_made)} 次调用</span>
           )}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { App as AntApp, ConfigProvider, Modal, theme } from "antd";
 import zhCN from "antd/locale/zh_CN";
@@ -17,6 +17,7 @@ import ContactUs from "./pages/ContactUs";
 import KnowledgeGraph from "./pages/KnowledgeGraph";
 import AICommandCenter from "./pages/AICommandCenter";
 import QuotaLibrary from "./pages/QuotaLibrary";
+import { AUTH_CHANGED_EVENT, clearAuthSession, hasActiveTrial } from "./auth";
 
 const NAV_ITEMS = [
   { path: "/", icon: "home", label: "首页" },
@@ -84,9 +85,9 @@ function AppSidebar() {
       {/* User profile */}
       <div className="app-sidebar-footer">
         <div className="app-sidebar-user">
-          <div className="app-sidebar-avatar">B</div>
+          <div className="app-sidebar-avatar">G</div>
           <div className="app-sidebar-user-info">
-            <p className="app-sidebar-user-name">Bruce</p>
+            <p className="app-sidebar-user-name">guoguo</p>
             <p className="app-sidebar-user-role">项目经理</p>
           </div>
           <span className="material-symbols-outlined app-sidebar-more">more_vert</span>
@@ -102,13 +103,54 @@ function AppSidebar() {
         className="contact-modal"
       >
         <div className="contact-modal-body">
-          <img src={`${import.meta.env.BASE_URL}qrcode.jpg`} alt="联系作者" className="contact-qrcode" />
+          <img src={`${import.meta.env.BASE_URL}wechat-qrcode.png`} alt="联系作者" className="contact-qrcode" />
           <h3>添加微信</h3>
-          <p>微信号：Changning_Lee</p>
+          <p>微信号：guo968673ge</p>
           <p style={{ marginTop: 4 }}>扫描二维码，与我取得联系</p>
         </div>
       </Modal>
     </aside>
+  );
+}
+
+function ProtectedAppShell() {
+  const [allowed, setAllowed] = useState(() => hasActiveTrial());
+
+  useEffect(() => {
+    const refresh = () => setAllowed(hasActiveTrial());
+    window.addEventListener(AUTH_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, refresh);
+  }, []);
+
+  if (!allowed) {
+    clearAuthSession();
+    return <Navigate to="/?activate=1" replace />;
+  }
+
+  return (
+    <div className="app-layout">
+      <AppSidebar />
+      <main className="app-main">
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/projects" element={<ProjectList />} />
+          <Route path="/projects/:id" element={<ProjectDetail />} />
+          <Route path="/pricing" element={<PricingManagement />} />
+          <Route path="/quota-library" element={<QuotaLibrary />} />
+          <Route path="/pricing/analysis/:projectId/:boqItemId" element={<UnitPriceAnalysis />} />
+          <Route path="/drawings" element={<DrawingRecognition />} />
+          <Route path="/drawings/:projectId" element={<DrawingRecognition />} />
+          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/rules" element={<RuleConfig />} />
+          <Route path="/graph" element={<KnowledgeGraph />} />
+          <Route path="/ai-center" element={<AICommandCenter />} />
+          <Route path="/audits" element={<AuditWorkbench />} />
+          <Route path="/contact" element={<ContactUs />} />
+          <Route path="/settings" element={<div className="page-container"><SystemSettings /></div>} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </main>
+    </div>
   );
 }
 
@@ -174,31 +216,7 @@ export default function App() {
             <Route path="/" element={<LandingPage />} />
 
             {/* App shell — sidebar + main */}
-            <Route path="/*" element={
-              <div className="app-layout">
-                <AppSidebar />
-                <main className="app-main">
-                  <Routes>
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/projects" element={<ProjectList />} />
-                    <Route path="/projects/:id" element={<ProjectDetail />} />
-                    <Route path="/pricing" element={<PricingManagement />} />
-                    <Route path="/quota-library" element={<QuotaLibrary />} />
-                    <Route path="/pricing/analysis/:projectId/:boqItemId" element={<UnitPriceAnalysis />} />
-                    <Route path="/drawings" element={<DrawingRecognition />} />
-                    <Route path="/drawings/:projectId" element={<DrawingRecognition />} />
-                    <Route path="/reports" element={<ReportsPage />} />
-                    <Route path="/rules" element={<RuleConfig />} />
-                    <Route path="/graph" element={<KnowledgeGraph />} />
-                    <Route path="/ai-center" element={<AICommandCenter />} />
-                    <Route path="/audits" element={<AuditWorkbench />} />
-                    <Route path="/contact" element={<ContactUs />} />
-                    <Route path="/settings" element={<div className="page-container"><SystemSettings /></div>} />
-                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                  </Routes>
-                </main>
-              </div>
-            } />
+            <Route path="/*" element={<ProtectedAppShell />} />
           </Routes>
         </BrowserRouter>
       </AntApp>

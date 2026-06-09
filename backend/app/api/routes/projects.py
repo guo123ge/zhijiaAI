@@ -1,5 +1,6 @@
 import json
 import math
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -50,6 +51,8 @@ def _project_out(p: Project) -> ProjectOut:
 
 
 def _log_audit(db: Session, project_id: int, action: str, before: dict | None = None, after: dict | None = None) -> None:
+    if action == "project.created" and os.getenv("PROJECT_CREATE_AUDIT_LOG", "false").lower() not in {"1", "true", "yes", "on"}:
+        return
     db.add(AuditLog(
         project_id=project_id,
         actor="system",

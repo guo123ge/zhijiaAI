@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { message, Upload, Spin } from "antd";
 import PageBreadcrumb from "../components/PageBreadcrumb";
-
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+import { API_BASE } from "../api";
 
 interface RecognizedComponent {
   id: string;
