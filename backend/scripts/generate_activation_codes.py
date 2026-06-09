@@ -14,7 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.db.session import SessionLocal
+from app.db.base import Base
+from app.db.session import SessionLocal, engine
+import app.models  # noqa: F401
 from app.services.activation_service import create_activation_code
 
 
@@ -25,6 +27,7 @@ def main() -> None:
     parser.add_argument("--note", default="")
     args = parser.parse_args()
 
+    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         for _ in range(args.count):
