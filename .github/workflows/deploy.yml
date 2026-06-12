@@ -31,8 +31,10 @@ jobs:
         working-directory: frontend
 
       - name: Build
-        run: npm run build
+        run: npm run build -- --base=/zhijiaAI/
         working-directory: frontend
+        env:
+          VITE_API_BASE: http://124.221.103.75/api/aicost
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
